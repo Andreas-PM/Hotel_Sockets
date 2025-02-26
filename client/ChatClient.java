@@ -71,10 +71,15 @@ public class ChatClient {
     private void listenToServer() {
         // Then read objects from the server
         try {
+            // continuously read from server and print out
             while (true) {
                 Message inMessage = (Message) inStream.readObject();
-                System.out.println(inMessage.getUser()+);
+                // Formats the echoed message to be in the format `user: message`
+                System.out.println(inMessage.getUser()+":"+inMessage.getMessageBody());
             }
+        } catch (Exception e) {
+            // TODO: better exception here
+            e.printStackTrace();
         }
     }
 }

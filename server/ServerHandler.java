@@ -21,10 +21,10 @@ public class ServerHandler implements Runnable {
         this.pool = pool;
 
         try {
-            this.inStream = new ObjectInputStream(socket.getInputStream());
             this.outStream = new ObjectOutputStream(socket.getOutputStream());
+            this.inStream = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
-            e.printStackTrace(); // Consider using something else (maybe logging instead
+            System.err.println("Connection error: " + e.getMessage());
         }
     }
 
@@ -46,7 +46,7 @@ public class ServerHandler implements Runnable {
                 pool.broadcast(message);
             }
         } catch (Exception e) {
-            e.printStackTrace(); // Consider better error handling
+            System.err.println("Connection error: " + e.getMessage());
         }
     }
 
@@ -54,7 +54,7 @@ public class ServerHandler implements Runnable {
         try {
             outStream.writeObject(msg);
         } catch (IOException e) {
-            e.printStackTrace(); // Consider using logging instead
+            System.err.println("Connection error: " + e.getMessage());
         }
     }
 
