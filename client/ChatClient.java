@@ -17,7 +17,7 @@ public class ChatClient {
 
     public void startClient() {
         try {
-            Socket socket = new Socket("localhost", 5000);
+            Socket socket = new Socket("localhost", 50000);
 
             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
             inStream = new ObjectInputStream(socket.getInputStream());
@@ -31,17 +31,21 @@ public class ChatClient {
             // name the user
             Scanner scanner_user = new Scanner(System.in);
             System.out.print("Enter your username: ");
+            System.out.flush();
             // This below links to `this.username = (String) inStream.readObject in ChatServerHandler.java`
             String username = scanner_user.nextLine();
-            System.out.print("Welcome to the world's best chat server " + username + " !");
+            System.out.println("Welcome to the world's best chat server " + username + " !");
+            System.out.flush();
 
             // Allow for some input
             Scanner scanner = new Scanner(System.in);
-            System.out.print("A client started...");
+            System.out.println("A client started...");
+            System.out.flush();
 
             // Make it run continuously
             while (true) {
                 System.out.print("Enter your message: ");
+                System.out.flush();
                 String message = scanner.nextLine();
 
                 // This message will be put into the message class
