@@ -34,6 +34,9 @@ public class ChatClient {
             System.out.flush();
             // This below links to `this.username = (String) inStream.readObject in ChatServerHandler.java`
             String username = scanner_user.nextLine();
+            Message loginMessage = new Message("", username); //Empty message string expected from server
+            outStream.writeObject(loginMessage);
+
             System.out.println("Welcome to the world's best chat server " + username + " !");
             System.out.flush();
 

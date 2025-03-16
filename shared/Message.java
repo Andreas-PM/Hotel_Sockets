@@ -10,7 +10,7 @@ public class Message implements Serializable {
 
     public Message(String messageBody, String username) {
         this.messageBody = messageBody;
-        this.user = user;
+        this.user = username;
     }
 
     public String getMessageBody() {

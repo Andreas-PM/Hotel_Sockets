@@ -31,18 +31,17 @@ public class ServerHandler implements Runnable {
     @Override
     public void run() {
         try {
-            this.username = (String) inStream.readObject();
+            Message loginMessage = (Message) inStream.readObject();
+            this.username = loginMessage.getUser();
             while (true) {
                 Message message = (Message) inStream.readObject();
                 String messageBody = message.getMessageBody();
-                this.username = message.getUser();
 
                 if (messageBody.equalsIgnoreCase("exit")) {
                     pool.removeUser(this);
                     socket.close();
                     break;
                 }
-
                 pool.broadcast(message);
             }
         } catch (Exception e) {
