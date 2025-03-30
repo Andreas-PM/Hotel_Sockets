@@ -4,35 +4,28 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+
 public class ChatServer {
 
     public void start() {
-            try(ServerSocket server_socket = new ServerSocket(50000)) {
-                ConnectionPool cp = new ConnectionPool();
-                System.out.println("Server started");
+        try (ServerSocket serverSocket = new ServerSocket(50000)) {  // Port fixed to 50000
+            ConnectionPool pool = new ConnectionPool(); // NEW: Using ConnectionPool to track clients
+            System.out.println("Server started on port 50000"); // CHANGED: Added more descriptive logging
 
-                while (true) {
-                    try {
-                        Socket socket = server_socket.accept();
-                        ServerHandler csh = new ServerHandler(socket, cp);
-                        cp.addConnects(csh);
-
-                        Thread th = new Thread(csh);
-                        th.start();
-
-                    } catch (IOException e) {
-                        System.err.println("Connection error: " + e.getMessage());
-//                        break;
-
-                    }
-                }
-
-            } catch (IOException e) {
-            System.err.println("Connection error: " + e.getMessage());
+            while (true) {
+                Socket socket = serverSocket.accept();
+                System.out.println("New client connected: " + socket.getInetAddress()); // NEW: Log each connection
+                ServerHandler handler = new ServerHandler(socket, pool);
+                pool.addClient(handler); // NEW: Register the client in the pool
+                new Thread(handler).start(); // CHANGED: Directly starting a new thread for the handler
             }
+        } catch (IOException e) {
+            System.err.println("Server error: " + e.getMessage());
+        }
     }
+
     public static void main(String[] args) {
-    ChatServer server = new ChatServer();
-    server.start();
+        ChatServer server = new ChatServer();
+        server.start();
     }
 }

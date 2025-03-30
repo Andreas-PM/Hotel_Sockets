@@ -3,22 +3,28 @@ import java.util.ArrayList;
 import java.util.List;
 import shared.Message;
 
-public class ConnectionPool { // Sourced from Practical 4
-    private List<ServerHandler> connects = new ArrayList<>();
+public class ConnectionPool {
+    private List<ServerHandler> clients;
 
-    public void addConnects(ServerHandler csh) {
-        connects.add(csh);
+    public ConnectionPool() {
+        clients = new ArrayList<>();
     }
 
-    public void broadcast(Message msg) { // displays messages
-        for (ServerHandler cnn:connects){
-            if (!cnn.getClientName().equals(msg.getUser())){
-                cnn.sendMessageToClients(msg);
+    public synchronized void addClient(ServerHandler client) {
+        clients.add(client);
+    }
+
+    public synchronized void removeClient(ServerHandler client) {
+        clients.remove(client);
+    }
+
+    public synchronized void broadcast(Message msg, ServerHandler sender) { // CHANGED: Now accepts a sender to skip broadcasting to self
+        for (ServerHandler client : clients) {
+            if (client != sender) {
+                client.sendMessageToClient(msg);
             }
         }
-    }
-
-    public void removeUser(ServerHandler csh) {
-        connects.remove(csh); // removes chatserverhandler
+        //Log the broadcast on the server side.
+        System.out.println("Broadcast from " + msg.getUser() + ": " + msg.getMessageBody());
     }
 }
