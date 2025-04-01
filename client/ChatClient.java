@@ -31,7 +31,6 @@ public class ChatClient {
             outStream.flush();
 
             System.out.println("Welcome " + username + "! You can start chatting now.");
-            System.out.println("Type your message, or 'exit' to quit.");
 
             // Main loop to send messages.
             while (true) {

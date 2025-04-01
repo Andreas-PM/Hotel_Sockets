@@ -13,6 +13,7 @@ public class ServerHandler implements Runnable {
     private ObjectOutputStream outStream;
     private ConnectionPool pool;
     private String username = "Anonymous"; // CHANGED: Default to "Anonymous"
+    private boolean isRegistered = false;
 
     public ServerHandler(Socket socket, ConnectionPool pool) {
         this.socket = socket;
@@ -37,6 +38,7 @@ public class ServerHandler implements Runnable {
                 String command = scanner.next();
                 if (command.equalsIgnoreCase("REGISTER") && scanner.hasNext()) {
                     username = scanner.next();
+                    isRegistered = true;
                     System.out.println("User registered: " + username); // NEW: Log registration
                     // NEW: Send confirmation message back to the client
                     Message confirm = new Message("Registration successful as " + username, "Server");
@@ -44,6 +46,7 @@ public class ServerHandler implements Runnable {
                 } else {
                     // Fallback: use the provided username from the Message object.
                     username = initialMsg.getUser();
+                    isRegistered = true;
                     System.out.println("User registered (fallback): " + username);
                 }
             }
@@ -69,14 +72,31 @@ public class ServerHandler implements Runnable {
                     if (firstWord.equalsIgnoreCase("REGISTER")) {
                         if (commandScanner.hasNext()) {
                             username = commandScanner.next();
+                            if (!isRegistered) {
+                                pool.addClient(this);
+                            }
+                            isRegistered = true;
                             System.out.println("User re-registered as: " + username); // NEW: Log re-registration
-                            Message confirm = new Message("Re-registration successful as " + username, "Server");
+                            Message confirm = new Message("Successfully registered as: " + username, "Server");
                             sendMessageToClient(confirm);
                         }
+                    } else if (firstWord.equalsIgnoreCase("UNREGISTER")) {
+                        //UNREGISTER the person, they can use REGISTER to connect again
+                        isRegistered = false;
+                        pool.removeClient(this);
+                        System.out.println("User unregistered: " + username);
+                        Message confirm = new Message("You have been unregistered. Register to chat again.", "Server");
+                        sendMessageToClient(confirm);
                     } else {
-                        // Not a command: broadcast the message to other clients.
-                        Message broadcastMsg = new Message(body, username);
-                        pool.broadcast(broadcastMsg, this); // CHANGED: Now passes the sender to broadcast
+                        //Check user is registered
+                        if (!isRegistered) {
+                            Message error = new Message("You are not registered. Use 'REGISTER name' to register.", "Server");
+                            sendMessageToClient(error);
+                        } else {
+                            //Show message to clients
+                            Message broadcastMsg = new Message(body, username);
+                            pool.broadcast(broadcastMsg, this);
+                        }
                     }
                 }
                 commandScanner.close();
