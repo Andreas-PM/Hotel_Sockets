@@ -18,13 +18,23 @@ public class ConnectionPool {
         clients.remove(client);
     }
 
-    public synchronized void broadcast(Message msg, ServerHandler sender) { // CHANGED: Now accepts a sender to skip broadcasting to self
+    public synchronized void broadcast(Message msg, ServerHandler sender) {
+        Message globalMsg = new Message("GLOBAL | " + msg.getUser() + ": " + msg.getMessageBody(), "");
         for (ServerHandler client : clients) {
             if (client != sender) {
-                client.sendMessageToClient(msg);
+                client.sendMessageToClient(globalMsg);
             }
         }
         //Log the broadcast on the server side.
         System.out.println("Broadcast from " + msg.getUser() + ": " + msg.getMessageBody());
+    }
+
+    public synchronized ServerHandler findClientByUsername(String username) {
+        for (ServerHandler client : clients) {
+            if (client.getUsername().equalsIgnoreCase(username)) {
+                return client;
+            }
+        }
+        return null;
     }
 }

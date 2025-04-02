@@ -59,13 +59,18 @@ public class ChatClient {
         try {
             while (true) {
                 Message msg = (Message) inStream.readObject();
-                // Display the sender and message.
-                System.out.println(msg.getUser() + ": " + msg.getMessageBody());
+                //Display the sender and message.
+                if (msg.getUser() == null || msg.getUser().isEmpty()) {
+                    System.out.println(msg.getMessageBody());
+                } else {
+                    System.out.println(msg.getUser() + ": " + msg.getMessageBody());
+                }
             }
         } catch (Exception e) {
             System.err.println("Disconnected from server.");
         }
     }
+
 
     public static void main(String[] args) {
         ChatClient client = new ChatClient();

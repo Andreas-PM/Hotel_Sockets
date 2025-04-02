@@ -12,12 +12,15 @@ public class ServerHandler implements Runnable {
     private ObjectInputStream inStream;
     private ObjectOutputStream outStream;
     private ConnectionPool pool;
-    private String username = "Anonymous"; // CHANGED: Default to "Anonymous"
+    private ChatGroup chatGroup;
+    private String username = "Anonymous";
+    private String currentGroup = "";
     private boolean isRegistered = false;
 
-    public ServerHandler(Socket socket, ConnectionPool pool) {
+    public ServerHandler(Socket socket, ConnectionPool pool, ChatGroup chatGroup) {
         this.socket = socket;
         this.pool = pool;
+        this.chatGroup = chatGroup;
         try {
             // Create output stream first to avoid potential deadlock
             this.outStream = new ObjectOutputStream(socket.getOutputStream());
@@ -25,6 +28,10 @@ public class ServerHandler implements Runnable {
         } catch (IOException e) {
             System.err.println("Error setting up streams: " + e.getMessage());
         }
+    }
+
+    public String getUsername() {
+        return username;
     }
 
     @Override
@@ -59,43 +66,83 @@ public class ServerHandler implements Runnable {
 
                 // Check for exit commands.
                 if (body.equalsIgnoreCase("exit") || body.equalsIgnoreCase("/exit")) {
-                    pool.removeClient(this); // CHANGED: Use removeClient from ConnectionPool
+                    pool.removeClient(this);
                     socket.close();
-                    System.out.println(username + " disconnected."); // NEW: Log disconnection
+                    System.out.println(username + " disconnected.");
                     break;
                 }
 
-                // NEW: Process commands – allow re-registration, for example.
                 Scanner commandScanner = new Scanner(body);
                 if (commandScanner.hasNext()) {
-                    String firstWord = commandScanner.next();
-                    if (firstWord.equalsIgnoreCase("REGISTER")) {
+                    String command = commandScanner.next();
+
+                    if (command.equalsIgnoreCase("CREATE")) { //Create a new group
+                        if (commandScanner.hasNext()) {
+                            String groupName = commandScanner.next();
+                            String response = chatGroup.createGroup(groupName);
+                            sendMessageToClient(new Message(response, "Server"));
+                        }
+                    } else if (command.equalsIgnoreCase("JOIN")) { //Join a group
+                        if (commandScanner.hasNext()) {
+                            String groupName = commandScanner.next();
+                            String response = chatGroup.joinGroup(groupName, this);
+                            currentGroup = groupName;
+                            sendMessageToClient(new Message(response, "Server"));
+                        }
+                    } else if (command.equalsIgnoreCase("LEAVE")) { //Leave a group
+                        if (commandScanner.hasNext()) {
+                            String groupName = commandScanner.next();
+                            String response = chatGroup.leaveGroup(groupName, this);
+                            if(currentGroup.equalsIgnoreCase(groupName)) {
+                                currentGroup = "";
+                            }
+                            sendMessageToClient(new Message(response, "Server"));
+                        }
+                    } else if (command.equalsIgnoreCase("REMOVE")) { //Remove a group
+                        if (commandScanner.hasNext()) {
+                            String groupName = commandScanner.next();
+                            String response = chatGroup.removeGroup(groupName, this);
+                            sendMessageToClient(new Message(response, "Server"));
+                        }
+                    } else if (command.equalsIgnoreCase("SEND")) { //Send message to user or group
+                        if (commandScanner.hasNext()) {
+                            String target = commandScanner.next();
+                            String text = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
+                            if (chatGroup.groupExists(target)) {
+                                //Send message to matching group name
+                                chatGroup.sendToGroup(target, new Message(text, username), this);
+                            } else {
+                                //If no match send message to username
+                                ServerHandler recipient = pool.findClientByUsername(target);
+                                if (recipient != null) {
+                                    Message directMsg = new Message("PRIVATE MESSAGE | " + username + ": " + text, "");
+                                    recipient.sendMessageToClient(directMsg);
+                                } else {
+                                    sendMessageToClient(new Message("User or group " + target + " not found.", "Server"));
+                                }
+                            }
+                        }
+                    } else if (command.equalsIgnoreCase("REGISTER")) {
                         if (commandScanner.hasNext()) {
                             username = commandScanner.next();
                             if (!isRegistered) {
                                 pool.addClient(this);
                             }
                             isRegistered = true;
-                            System.out.println("User re-registered as: " + username); // NEW: Log re-registration
-                            Message confirm = new Message("Successfully registered as: " + username, "Server");
-                            sendMessageToClient(confirm);
+                            System.out.println("User re-registered as: " + username);
+                            sendMessageToClient(new Message("Successfully registered as: " + username, "Server"));
                         }
-                    } else if (firstWord.equalsIgnoreCase("UNREGISTER")) {
-                        //UNREGISTER the person, they can use REGISTER to connect again
+                    } else if (command.equalsIgnoreCase("UNREGISTER")) {
                         isRegistered = false;
                         pool.removeClient(this);
                         System.out.println("User unregistered: " + username);
-                        Message confirm = new Message("You have been unregistered. Register to chat again.", "Server");
-                        sendMessageToClient(confirm);
+                        sendMessageToClient(new Message("You have been unregistered. Register to chat again.", "Server"));
                     } else {
-                        //Check user is registered
-                        if (!isRegistered) {
-                            Message error = new Message("You are not registered. Use 'REGISTER name' to register.", "Server");
-                            sendMessageToClient(error);
-                        } else {
-                            //Show message to clients
-                            Message broadcastMsg = new Message(body, username);
-                            pool.broadcast(broadcastMsg, this);
+                        //Show message to clients
+                        if (!currentGroup.isEmpty()) { //If in a group, send the message to the group
+                            chatGroup.sendToGroup(currentGroup, new Message(body, username), this);
+                        } else { //If not in a group send the message to the global chat
+                            pool.broadcast(new Message(body, username), this);
                         }
                     }
                 }
