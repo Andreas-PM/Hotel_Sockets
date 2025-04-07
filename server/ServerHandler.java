@@ -13,14 +13,16 @@ public class ServerHandler implements Runnable {
     private ObjectOutputStream outStream;
     private ConnectionPool pool;
     private ChatGroup chatGroup;
+    private TopicHandler topicHandler;
     private String username = "Anonymous";
     private String currentGroup = "";
     private boolean isRegistered = false;
 
-    public ServerHandler(Socket socket, ConnectionPool pool, ChatGroup chatGroup) {
+    public ServerHandler(Socket socket, ConnectionPool pool, ChatGroup chatGroup, TopicHandler topicHandler) {
         this.socket = socket;
         this.pool = pool;
         this.chatGroup = chatGroup;
+        this.topicHandler = topicHandler;
         try {
             // Create output stream first to avoid potential deadlock
             this.outStream = new ObjectOutputStream(socket.getOutputStream());
@@ -43,13 +45,20 @@ public class ServerHandler implements Runnable {
             Scanner scanner = new Scanner(initialBody);
             if (scanner.hasNext()) {
                 String command = scanner.next();
-                if (command.equalsIgnoreCase("REGISTER") && scanner.hasNext()) {
-                    username = scanner.next();
-                    isRegistered = true;
-                    System.out.println("User registered: " + username); // NEW: Log registration
-                    // NEW: Send confirmation message back to the client
-                    Message confirm = new Message("Registration successful as " + username, "Server");
-                    sendMessageToClient(confirm);
+                if (command.equalsIgnoreCase("REGISTER")) {
+                    if (scanner.hasNext()) {
+                        username = scanner.next();
+                        isRegistered = true;
+                        System.out.println("User registered: " + username); // NEW: Log registration
+                        // NEW: Send confirmation message back to the client
+                        Message confirm = new Message("Registration successful as " + username, "Server");
+                        sendMessageToClient(confirm);
+                    } else {
+                        // Fallback: use the provided username from the Message object.
+                        username = initialMsg.getUser();
+                        isRegistered = true;
+                        System.out.println("User registered (fallback): " + username);
+                    }
                 } else {
                     // Fallback: use the provided username from the Message object.
                     username = initialMsg.getUser();
@@ -75,6 +84,29 @@ public class ServerHandler implements Runnable {
                 Scanner commandScanner = new Scanner(body);
                 if (commandScanner.hasNext()) {
                     String command = commandScanner.next();
+
+                    if (command.equalsIgnoreCase("TOPIC")) {
+                        if (commandScanner.hasNext()) {
+                            String topic = commandScanner.next();
+                            String response = topicHandler.createTopic(topic);
+                            sendMessageToClient(new Message(response, "Server"));
+                        }
+                    } else if (command.equalsIgnoreCase("SUBSCRIBE")) {
+                        if (commandScanner.hasNext()) {
+                            String topic = commandScanner.next();
+                            String response = topicHandler.subscribe(topic, this);
+                            sendMessageToClient(new Message(response, "Server"));
+                        }
+                    } else if (command.equalsIgnoreCase("UNSUBSCRIBE")) {
+                        if (commandScanner.hasNext()) {
+                            String topic = commandScanner.next();
+                            String response = topicHandler.unsubscribe(topic, this);
+                            sendMessageToClient(new Message(response, "Server"));
+                        }
+                    } else if (command.equalsIgnoreCase("TOPICS")) {
+                        String response = topicHandler.listTopics();
+                        sendMessageToClient(new Message(response, "Server"));
+                    }
 
                     if (command.equalsIgnoreCase("CREATE")) { //Create a new group
                         if (commandScanner.hasNext()) {
@@ -143,6 +175,7 @@ public class ServerHandler implements Runnable {
                             chatGroup.sendToGroup(currentGroup, new Message(body, username), this);
                         } else { //If not in a group send the message to the global chat
                             pool.broadcast(new Message(body, username), this);
+                            topicHandler.notifySubscribers(new Message(body, username), this);
                         }
                     }
                 }
