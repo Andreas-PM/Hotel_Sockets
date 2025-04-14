@@ -39,22 +39,35 @@ public class TopicHandler {
         return "List of topics: " + topics;
     }
 
-    public synchronized void notifySubscribers(Message message, ServerHandler handler) {
+    // In server/TopicHandler.java
+    // In server/TopicHandler.java
+    public synchronized void notifySubscribers(Message message, ServerHandler sender) {
+        //create topics and notify the sender if a new topic is created
         Set<String> hashtags = extractHashtags(message.getMessageBody());
+        for (String tag : hashtags) {
+            //Create topic and get the response message
+            String topicResponse = createTopic(tag);
+            //If the topic was created, send the confirmation
+            if (topicResponse.contains("created")) {
+                sender.sendMessageToClient(new Message(topicResponse, "Server"));
+            }
+        }
 
-        for (String topic : hashtags) {
-            createTopic(topic);
-            Set<ServerHandler> subscribers = subscriptions.get(topic.toLowerCase());
-
-            if (subscribers != null) {
-                for (ServerHandler subscriber : subscribers) {
-                    if(subscriber != null) {
-                        subscriber.sendMessageToClient(new Message("#" + topic + " | " + message.getMessageBody(), message.getUser()));
-                    }
+        //heck each topic for a match in the message text ---
+        String messageTextLower = message.getMessageBody().toLowerCase();
+        for (Map.Entry<String, Set<ServerHandler>> entry : subscriptions.entrySet()) {
+            String topic = entry.getKey();  // sored as lower case
+            //Check if the message text contains the topic
+            if (messageTextLower.contains(topic)) {
+                String formatted = topic.toUpperCase() + " | " + message.getUser() + ": " + message.getMessageBody();
+                for (ServerHandler subscriber : entry.getValue()) {
+                    subscriber.sendMessageToClient(new Message(formatted, ""));
                 }
             }
         }
     }
+
+
 
     private Set<String> extractHashtags(String messageBody) {
         Set<String> hashtags = new HashSet<>();

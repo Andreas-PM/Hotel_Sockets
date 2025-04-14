@@ -36,6 +36,8 @@ public class ServerHandler implements Runnable {
         return username;
     }
 
+    public String getCurrentGroup() { return currentGroup; }
+
     @Override
     public void run() {
         try {
@@ -49,18 +51,18 @@ public class ServerHandler implements Runnable {
                     if (scanner.hasNext()) {
                         username = scanner.next();
                         isRegistered = true;
-                        System.out.println("User registered: " + username); // NEW: Log registration
-                        // NEW: Send confirmation message back to the client
+                        System.out.println("User registered: " + username); //Log registration
+                        //Send confirmation message back to the client
                         Message confirm = new Message("Registration successful as " + username, "Server");
                         sendMessageToClient(confirm);
                     } else {
-                        // Fallback: use the provided username from the Message object.
+                        //use the provided username from the Message object.
                         username = initialMsg.getUser();
                         isRegistered = true;
                         System.out.println("User registered (fallback): " + username);
                     }
                 } else {
-                    // Fallback: use the provided username from the Message object.
+                    //use the provided username from the Message object.
                     username = initialMsg.getUser();
                     isRegistered = true;
                     System.out.println("User registered (fallback): " + username);
@@ -68,12 +70,12 @@ public class ServerHandler implements Runnable {
             }
             scanner.close();
 
-            // Main loop to read further messages from the client.
+            //Main loop to read further messages from the client.
             while (true) {
                 Message msg = (Message) inStream.readObject();
                 String body = msg.getMessageBody();
 
-                // Check for exit commands.
+                //Check for exit commands.
                 if (body.equalsIgnoreCase("exit") || body.equalsIgnoreCase("/exit")) {
                     pool.removeClient(this);
                     socket.close();
@@ -175,8 +177,8 @@ public class ServerHandler implements Runnable {
                             chatGroup.sendToGroup(currentGroup, new Message(body, username), this);
                         } else { //If not in a group send the message to the global chat
                             pool.broadcast(new Message(body, username), this);
-                            topicHandler.notifySubscribers(new Message(body, username), this);
                         }
+                        topicHandler.notifySubscribers(new Message(body, username), this);
                     }
                 }
                 commandScanner.close();
@@ -192,8 +194,8 @@ public class ServerHandler implements Runnable {
             outStream.flush();
         } catch (IOException e) {
             System.err.println("Error sending message to " + username + ": " + e.getMessage());
-            pool.removeClient(this); // Remove client to prevent future errors
-            // Optionally, close the socket and streams here.
+            pool.removeClient(this); //Remove client to prevent future errors
+            //Optionally, close the socket and streams here.
         }
     }
 
