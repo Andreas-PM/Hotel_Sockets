@@ -11,6 +11,8 @@ public class ChatClient {
     private ObjectInputStream inStream;
     private ObjectOutputStream outStream;
     private Socket socket;
+    private SwearFilter swearFilter = new SwearFilter();
+
 
     public void startClient() {
         try {
