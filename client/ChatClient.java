@@ -15,6 +15,7 @@ public class ChatClient {
     private Socket socket;
     private final SwearFilter swearFilter = new SwearFilter();
     private final AtomicBoolean registrationComplete = new AtomicBoolean(false);
+    private final Object registrationLock = new Object(); // Add lock object for synchronization
 
     public void startClient() {
         try {
@@ -44,14 +45,23 @@ public class ChatClient {
                     outStream.writeObject(registerMsg);
                     outStream.flush();
                     
-                    // Wait for the server's response
-                    try {
-                        // Give time for the server to respond and the listener thread to process
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+                    // Wait for the server's response using proper synchronization
+                    synchronized (registrationLock) {
+                        try {
+                            // Wait for notification from the listener thread
+                            registrationLock.wait(5000); // Add timeout for safety
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
                     }
-                }   System.out.println("You can start chatting now.");
+                    
+                    // If we're still not registered after waiting, server might be unresponsive
+                    if (!registrationComplete.get()) {
+                        System.out.println("Registration attempt timed out. Please try again.");
+                    }
+                }
+                
+                System.out.println("You can start chatting now.");
                 // Main loop to send messages.
                 while (true) {
                     System.out.print("> "); // Simple prompt without username
@@ -105,7 +115,9 @@ public class ChatClient {
                         
                         String messageHelp = """
                                                                  Message Commands:
-                                                                 1. /send <target> <message> - Send a message to a user or group
+                                                                 1. /send <target> <message> - Send a message to a user or group (legacy format)
+                                                                 2. /send user <username> <message> - Send a direct message to a specific user
+                                                                 3. /send group <groupname> <message> - Send a message to a specific group
                                                                  """;
                         
                         if (helpFlag.isEmpty()) {
@@ -200,23 +212,46 @@ public class ChatClient {
                         }
                     }
                     
-                    // Apply swear filter to message content
+                    // Intercept /send command to apply filtering based on new format
                     String filteredUserInput;
-                    if (userInput.startsWith("/send")) {
-                        String target;
-                        String messageContent;
-                        try ( // For send commands, only filter the message content, not the command parts
-                                Scanner scanner1 = new Scanner(userInput)) {
-                            scanner1.next(); // Skip the /send command
-                            target = scanner1.next(); // Skip the target
-                            messageContent = scanner1.hasNextLine() ? scanner1.nextLine().trim() : "";
+                    if (userInputLower.startsWith("/send")) {
+                        try (Scanner cmdScanner = new Scanner(userInput)) {
+                            cmdScanner.next(); // Skip the /send command
+                            
+                            if (cmdScanner.hasNext()) {
+                                String targetTypeOrTarget = cmdScanner.next();
+                                
+                                // Check if it's the new format (/send user|group <target>) or legacy format (/send <target>)
+                                if (targetTypeOrTarget.equalsIgnoreCase("user") || targetTypeOrTarget.equalsIgnoreCase("group")) {
+                                    // New format
+                                    if (cmdScanner.hasNext()) {
+                                        String target = cmdScanner.next();
+                                        String messageContent = cmdScanner.hasNextLine() ? cmdScanner.nextLine().trim() : "";
+                                        
+                                        String filteredContent = swearFilter.filter(messageContent);
+                                        filteredUserInput = "/send " + targetTypeOrTarget + " " + target + " " + filteredContent;
+                                        
+                                        // Display the filtered message on user's screen
+                                        System.out.println("[YOU] | " + username + ": /send " + targetTypeOrTarget + " " +
+                                                target + " " + filteredContent);
+                                    } else {
+                                        // Missing target
+                                        filteredUserInput = userInput;
+                                    }
+                                } else {
+                                    // Legacy format - target is already in targetTypeOrTarget
+                                    String messageContent = cmdScanner.hasNextLine() ? cmdScanner.nextLine().trim() : "";
+                                    String filteredContent = swearFilter.filter(messageContent);
+                                    filteredUserInput = "/send " + targetTypeOrTarget + " " + filteredContent;
+                                    
+                                    // Display the filtered message on user's screen
+                                    System.out.println("[YOU] | " + username + ": /send " + targetTypeOrTarget + " " + filteredContent);
+                                }
+                            } else {
+                                // Missing target type or target
+                                filteredUserInput = userInput;
+                            }
                         } // Skip the /send command
-                        
-                        String filteredContent = swearFilter.filter(messageContent);
-                        filteredUserInput = "/send " + target + " " + filteredContent;
-                        
-                        // Display the filtered message on user's screen
-                        System.out.println("[YOU] | " + username + ": /send " + target + " " + filteredContent);
                     } else if (!userInput.startsWith("/")) {
                         // Regular message, filter it
                         filteredUserInput = swearFilter.filter(userInput);
@@ -258,12 +293,18 @@ public class ChatClient {
                     // Successful registration check
                     if (msg.getMessageBody().contains("Successfully registered as:")) {
                         registrationComplete.set(true);
+                        synchronized (registrationLock) {
+                            registrationLock.notifyAll(); // Notify waiting thread
+                        }
                         System.out.println(msg.getMessageBody());
                         continue;
                     }
                     // Username already exists or contains profanity check
                     else if (msg.getMessageBody().contains("already exists") ||
                              msg.getMessageBody().contains("inappropriate content")) {
+                        synchronized (registrationLock) {
+                            registrationLock.notifyAll(); // Notify waiting thread
+                        }
                         System.out.println(msg.getMessageBody());
                         continue;
                     }

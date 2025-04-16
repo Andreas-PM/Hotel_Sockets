@@ -162,152 +162,201 @@ public class ServerHandler implements Runnable {
                     String command = commandScanner.next().toLowerCase();
                     
                     // Command handling logic
-                    if (command.equals("/topic")) {
-                        if (commandScanner.hasNext()) {
-                            String subCommand = commandScanner.next().toLowerCase();
-                            String args = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
-                            String response = topicHandler.processTopicCommand(subCommand, args, this);
-                            sendMessageToClient(new Message(response, "Server"));
-                        } else {
-                            sendMessageToClient(new Message("Please specify a topic command: /topic <create|subscribe|unsubscribe|list> [args]", "Server"));
+                    switch (command) {
+                        case "/topic" -> {
+                            if (commandScanner.hasNext()) {
+                                String subCommand = commandScanner.next().toLowerCase();
+                                String args = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
+                                String response = topicHandler.processTopicCommand(subCommand, args, this);
+                                sendMessageToClient(new Message(response, "Server"));
+                            } else {
+                                sendMessageToClient(new Message("Please specify a topic command: /topic <create|subscribe|unsubscribe|list> [args]", "Server"));
+                            }
                         }
-                    } else if (command.equals("/topics")) {
-                        // Legacy command for backward compatibility
-                        String response = topicHandler.listTopics();
-                        sendMessageToClient(new Message(response, "Server"));
-                    } else if (command.equals("/user")) {
-                        if (commandScanner.hasNext()) {
-                            String subCommand = commandScanner.next().toLowerCase();
-                            switch (subCommand) {
-                                case "list" ->                                     {
+                        case "/topics" -> {
+                            // Legacy command for backward compatibility
+                            String response = topicHandler.listTopics();
+                            sendMessageToClient(new Message(response, "Server"));
+                        }
+                        case "/user" -> {
+                            if (commandScanner.hasNext()) {
+                                String subCommand = commandScanner.next().toLowerCase();
+                                switch (subCommand) {
+                                    case "list" -> {
                                         // Get and send list of online users
                                         String response = pool.listUsers();
                                         sendMessageToClient(new Message(response, "Server"));
                                     }
-                                case "count" ->                                     {
+                                    case "count" -> {
                                         // Get and send count of online users
                                         String response = pool.getUserCount();
                                         sendMessageToClient(new Message(response, "Server"));
                                     }
-                                default -> sendMessageToClient(new Message("Invalid user command. Try '/user list' or '/user count'", "Server"));
-                            }
-                        } else {
-                            sendMessageToClient(new Message("Please specify a user command: /user <list|count>", "Server"));
-                        }
-                    } else if (command.equals("/group")) {
-                        if (commandScanner.hasNext()) {
-                            String subCommand = commandScanner.next().toLowerCase();
-                            String args = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
-                            String response = chatGroup.processGroupCommand(subCommand, args, this);
-                            sendMessageToClient(new Message(response, "Server"));
-                        } else {
-                            sendMessageToClient(new Message("Please specify a group command: /group <create|join|leave|remove|list> [args]", "Server"));
-                        }
-                    } else if (command.equals("/create")) { // Legacy command
-                        if (commandScanner.hasNext()) {
-                            String groupName = commandScanner.next();
-                            String response = chatGroup.createGroup(groupName);
-                            sendMessageToClient(new Message(response, "Server"));
-                        }
-                    } else if (command.equals("/join")) { // Legacy command
-                        if (commandScanner.hasNext()) {
-                            String groupName = commandScanner.next();
-                            String response = chatGroup.joinGroup(groupName, this);
-                            currentGroup = groupName;
-                            sendMessageToClient(new Message(response, "Server"));
-                        }
-                    } else if (command.equals("/leave")) { // Legacy command
-                        if (commandScanner.hasNext()) {
-                            String groupName = commandScanner.next();
-                            String response = chatGroup.leaveGroup(groupName, this);
-                            if(currentGroup.equalsIgnoreCase(groupName)) {
-                                currentGroup = "";
-                            }
-                            sendMessageToClient(new Message(response, "Server"));
-                        }
-                    } else if (command.equals("/remove")) { // Legacy command
-                        if (commandScanner.hasNext()) {
-                            String groupName = commandScanner.next();
-                            String response = chatGroup.removeGroup(groupName, this);
-                            sendMessageToClient(new Message(response, "Server"));
-                        }
-                    } else if (command.equals("/send")) { //Send message to user or group
-                        if (commandScanner.hasNext()) {
-                            String target = commandScanner.next();
-                            String text = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
-                            
-                            // Filter the message content
-                            text = swearFilter.filter(text);
-                            
-                            if (chatGroup.groupExists(target)) {
-                                //Send message to matching group name
-                                chatGroup.sendToGroup(target, new Message(text, username), this);
-                            } else {
-                                //If no match send message to username
-                                ServerHandler recipient = pool.findClientByUsername(target);
-                                if (recipient != null) {
-                                    Message directMsg = new Message("PRIVATE MESSAGE | " + username + ": " + text, "");
-                                    recipient.sendMessageToClient(directMsg);
-                                } else {
-                                    sendMessageToClient(new Message("User or group " + target + " not found.", "Server"));
+                                    default -> sendMessageToClient(new Message("Invalid user command. Try '/user list' or '/user count'", "Server"));
                                 }
-                            }
-                        }
-                    } else if (command.equals("/register")) {
-                        if (commandScanner.hasNext()) {
-                            String newUsername = commandScanner.next();
-                            
-                            // Check username for profanity - reject instead of filtering
-                            if (!swearFilter.isClean(newUsername)) {
-                                // Send error about inappropriate username
-                                sendMessageToClient(new Message("Username contains inappropriate content. Please choose another username.", "Server"));
-                                commandScanner.close();
-                                continue; // Skip to next message
-                            }
-                            
-                            ServerHandler existingUser = pool.findClientByUsername(newUsername);
-                            
-                            if (existingUser != null && existingUser != this) {
-                                // Username already exists and it's not this user - send an error message
-                                sendMessageToClient(new Message("Username '" + newUsername + "' already exists. Please try another username.", "Server"));
-                            } else if (existingUser == this) {
-                                // User is trying to register with their current username
-                                sendMessageToClient(new Message("You are already registered as: " + newUsername, "Server"));
                             } else {
-                                // Valid new username
-                                if (!isRegistered) {
-                                    pool.addClient(this);
-                                    isRegistered = true;
-                                } else {
-                                    // Announce re-registration
-                                    String announcement = "User " + username + " has re-registered as: " + newUsername;
-                                    pool.broadcast(new Message(announcement, "Server"), this);
-                                }
-                                username = newUsername;
-                                sendMessageToClient(new Message("Successfully registered as: " + username, "Server"));
+                                sendMessageToClient(new Message("Please specify a user command: /user <list|count>", "Server"));
                             }
-                        } else {
-                            // No username provided with the /register command
-                            sendMessageToClient(new Message("Please specify a username: /register <username>", "Server"));
                         }
-                    } else if (command.equals("/unregister")) {
-                        isRegistered = false;
-                        pool.removeClient(this);
-                        System.out.println("User unregistered: " + username);
-                        sendMessageToClient(new Message("You have been unregistered. Register to chat again.", "Server"));
-                    } else if (command.equals("/name")) {
-                        sendMessageToClient(new Message("Your current username: " + username, "Server"));
-                    } else {
-                        // Filter the message content for regular messages
-                        String filteredBody = swearFilter.filter(body);
-                        
-                        //Show message to clients
-                        if (!currentGroup.isEmpty()) { //If in a group, send the message to the group
-                            chatGroup.sendToGroup(currentGroup, new Message(filteredBody, username), this);
-                        } else { //If not in a group send the message to the global chat
-                            pool.broadcast(new Message(filteredBody, username), this);
+                        case "/group" -> {
+                            if (commandScanner.hasNext()) {
+                                String subCommand = commandScanner.next().toLowerCase();
+                                String args = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
+                                String response = chatGroup.processGroupCommand(subCommand, args, this);
+                                sendMessageToClient(new Message(response, "Server"));
+                            } else {
+                                sendMessageToClient(new Message("Please specify a group command: /group <create|join|leave|remove|list> [args]", "Server"));
+                            }
                         }
-                        topicHandler.notifySubscribers(new Message(filteredBody, username), this);
+                        case "/create" -> { // Legacy command
+                            if (commandScanner.hasNext()) {
+                                String groupName = commandScanner.next();
+                                String response = chatGroup.createGroup(groupName);
+                                sendMessageToClient(new Message(response, "Server"));
+                            }
+                        }
+                        case "/join" -> { // Legacy command
+                            if (commandScanner.hasNext()) {
+                                String groupName = commandScanner.next();
+                                String response = chatGroup.joinGroup(groupName, this);
+                                currentGroup = groupName;
+                                sendMessageToClient(new Message(response, "Server"));
+                            }
+                        }
+                        case "/leave" -> { // Legacy command
+                            if (commandScanner.hasNext()) {
+                                String groupName = commandScanner.next();
+                                String response = chatGroup.leaveGroup(groupName, this);
+                                if (currentGroup.equalsIgnoreCase(groupName)) {
+                                    currentGroup = "";
+                                }
+                                sendMessageToClient(new Message(response, "Server"));
+                            }
+                        }
+                        case "/remove" -> { // Legacy command
+                            if (commandScanner.hasNext()) {
+                                String groupName = commandScanner.next();
+                                String response = chatGroup.removeGroup(groupName, this);
+                                sendMessageToClient(new Message(response, "Server"));
+                            }
+                        }
+                        case "/send" -> { //Send message to user or group
+                            if (commandScanner.hasNext()) {
+                                String targetType = commandScanner.next().toLowerCase();
+                                
+                                if (targetType.equals("user") || targetType.equals("group")) {
+                                    // New command format: /send user|group <target> <message>
+                                    if (commandScanner.hasNext()) {
+                                        String target = commandScanner.next();
+                                        String text = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
+                                        
+                                        // Filter the message content
+                                        text = swearFilter.filter(text);
+                                        
+                                        if (targetType.equals("group")) {
+                                            if (chatGroup.groupExists(target)) {
+                                                chatGroup.sendToGroup(target, new Message(text, username), this);
+                                            } else {
+                                                sendMessageToClient(new Message("Group " + target + " not found.", "Server"));
+                                            }
+                                        } else { // user
+                                            ServerHandler recipient = pool.findClientByUsername(target);
+                                            if (recipient != null) {
+                                                Message directMsg = new Message("PRIVATE MESSAGE | " + username + ": " + text, "");
+                                                recipient.sendMessageToClient(directMsg);
+                                                sendMessageToClient(new Message("Message sent to user: " + target, "Server"));
+                                            } else {
+                                                sendMessageToClient(new Message("User " + target + " not found.", "Server"));
+                                            }
+                                        }
+                                    } else {
+                                        sendMessageToClient(new Message("Please specify a target: /send " + targetType + " <target> <message>", "Server"));
+                                    }
+                                } else {
+                                    // Legacy format for backward compatibility: /send <target> <message>
+                                    String target = targetType; // In this case, targetType is actually the target
+                                    String text = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
+                                    
+                                    // Filter the message content
+                                    text = swearFilter.filter(text);
+                                    
+                                    if (chatGroup.groupExists(target)) {
+                                        //Send message to matching group name
+                                        chatGroup.sendToGroup(target, new Message(text, username), this);
+                                    } else {
+                                        //If no match send message to username
+                                        ServerHandler recipient = pool.findClientByUsername(target);
+                                        if (recipient != null) {
+                                            Message directMsg = new Message("PRIVATE MESSAGE | " + username + ": " + text, "");
+                                            recipient.sendMessageToClient(directMsg);
+                                        } else {
+                                            sendMessageToClient(new Message("User or group " + target + " not found.", "Server"));
+                                        }
+                                    }
+                                }
+                            } else {
+                                sendMessageToClient(new Message("Please specify a target type (user/group): /send <user|group> <target> <message>", "Server"));
+                            }
+                        }
+                        case "/register" -> {
+                            if (commandScanner.hasNext()) {
+                                String newUsername = commandScanner.next();
+                                
+                                // Check username for profanity - reject instead of filtering
+                                if (!swearFilter.isClean(newUsername)) {
+                                    // Send error about inappropriate username
+                                    sendMessageToClient(new Message("Username contains inappropriate content. Please choose another username.", "Server"));
+                                    commandScanner.close();
+                                    continue; // Skip to next message
+                                }
+                                
+                                ServerHandler existingUser = pool.findClientByUsername(newUsername);
+                                
+                                if (existingUser != null && existingUser != this) {
+                                    // Username already exists and it's not this user - send an error message
+                                    sendMessageToClient(new Message("Username '" + newUsername + "' already exists. Please try another username.", "Server"));
+                                } else if (existingUser == this) {
+                                    // User is trying to register with their current username
+                                    sendMessageToClient(new Message("You are already registered as: " + newUsername, "Server"));
+                                } else {
+                                    // Valid new username
+                                    if (!isRegistered) {
+                                        pool.addClient(this);
+                                        isRegistered = true;
+                                    } else {
+                                        // Announce re-registration
+                                        String announcement = "User " + username + " has re-registered as: " + newUsername;
+                                        pool.broadcast(new Message(announcement, "Server"), this);
+                                    }
+                                    username = newUsername;
+                                    sendMessageToClient(new Message("Successfully registered as: " + username, "Server"));
+                                }
+                            } else {
+                                // No username provided with the /register command
+                                sendMessageToClient(new Message("Please specify a username: /register <username>", "Server"));
+                            }
+                        }
+                        case "/unregister" -> {
+                            isRegistered = false;
+                            pool.removeClient(this);
+                            System.out.println("User unregistered: " + username);
+                            sendMessageToClient(new Message("You have been unregistered. Register to chat again.", "Server"));
+                        }
+                        case "/name" -> {
+                            sendMessageToClient(new Message("Your current username: " + username, "Server"));
+                        }
+                        default -> {
+                            // Filter the message content for regular messages
+                            String filteredBody = swearFilter.filter(body);
+                            
+                            //Show message to clients
+                            if (!currentGroup.isEmpty()) { //If in a group, send the message to the group
+                                chatGroup.sendToGroup(currentGroup, new Message(filteredBody, username), this);
+                            } else { //If not in a group send the message to the global chat
+                                pool.broadcast(new Message(filteredBody, username), this);
+                            }
+                            topicHandler.notifySubscribers(new Message(filteredBody, username), this);
+                        }
                     }
                 }
             }
