@@ -7,6 +7,7 @@ import java.net.Socket;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
 import shared.Message;
+import shared.SwearFilter;
 
 public class ChatClient {
     private ObjectInputStream inStream;
@@ -14,7 +15,6 @@ public class ChatClient {
     private Socket socket;
     private SwearFilter swearFilter = new SwearFilter();
     private AtomicBoolean registrationComplete = new AtomicBoolean(false);
-
 
     public void startClient() {
         try {
@@ -34,6 +34,13 @@ public class ChatClient {
             while (!registrationComplete.get()) {
                 System.out.print("Enter your username: ");
                 username = scanner.nextLine();
+                
+                // Check username for profanity - don't filter, just reject
+                if (!swearFilter.isClean(username)) {
+                    System.out.println("Username contains inappropriate content. Please choose another username.");
+                    continue; // Skip to next iteration without sending to server
+                }
+                
                 Message registerMsg = new Message("REGISTER " + username, username);
                 outStream.writeObject(registerMsg);
                 outStream.flush();
@@ -121,21 +128,59 @@ public class ChatClient {
                     }
                 }
 
-                // Display formatted message on the user's screen to show what they sent
-                if (!userInput.startsWith("/") || userInput.startsWith("/send")) {
-                    System.out.println("[YOU] | " + username + ": " + userInput);
+                // Intercept /register command to check for profanity in new username
+                if (userInputLower.startsWith("/register ")) {
+                    Scanner cmdScanner = new Scanner(userInput);
+                    cmdScanner.next(); // Skip command
+                    if (cmdScanner.hasNext()) {
+                        String newUsername = cmdScanner.next();
+                        cmdScanner.close();
+                        
+                        // Check new username for profanity
+                        if (!swearFilter.isClean(newUsername)) {
+                            System.out.println("Username contains inappropriate content. Please choose another username.");
+                            continue; // Skip to next iteration without sending to server
+                        }
+                    }
                 }
 
-                Message msg = new Message(userInput, username);
+                // Apply swear filter to message content
+                String filteredUserInput;
+                if (userInput.startsWith("/send")) {
+                    // For send commands, only filter the message content, not the command parts
+                    Scanner scanner1 = new Scanner(userInput);
+                    scanner1.next(); // Skip the /send command
+                    String target = scanner1.next(); // Skip the target
+                    String messageContent = scanner1.hasNextLine() ? scanner1.nextLine().trim() : "";
+                    scanner1.close();
+                    
+                    String filteredContent = swearFilter.filter(messageContent);
+                    filteredUserInput = "/send " + target + " " + filteredContent;
+                    
+                    // Display the filtered message on user's screen
+                    System.out.println("[YOU] | " + username + ": /send " + target + " " + filteredContent);
+                } else if (!userInput.startsWith("/")) {
+                    // Regular message, filter it
+                    filteredUserInput = swearFilter.filter(userInput);
+                    
+                    // Display filtered message on user's screen
+                    System.out.println("[YOU] | " + username + ": " + filteredUserInput);
+                } else {
+                    // Command message, don't filter or display
+                    filteredUserInput = userInput;
+                }
+
+                // Send the filtered message to the server
+                Message msg = new Message(filteredUserInput, username);
                 outStream.writeObject(msg);
-                outStream.flush(); // NEW: Flush after sending the message
+                outStream.flush();
 
                 if (userInput.equalsIgnoreCase("exit") || userInput.equalsIgnoreCase("/exit")) {
                     break;
                 }
             }
 
-            // NEW: Clean up resources on exit
+            // Clean up resources on exit
             scanner.close();
             socket.close();
             inStream.close();
@@ -159,8 +204,9 @@ public class ChatClient {
                         System.out.println(msg.getMessageBody());
                         continue;
                     }
-                    // Username already exists check - now we need to display this error
-                    else if (msg.getMessageBody().contains("already exists")) {
+                    // Username already exists or contains profanity check
+                    else if (msg.getMessageBody().contains("already exists") ||
+                             msg.getMessageBody().contains("inappropriate content")) {
                         System.out.println(msg.getMessageBody());
                         continue;
                     }
@@ -180,7 +226,6 @@ public class ChatClient {
             System.err.println("Disconnected from server.");
         }
     }
-
 
     public static void main(String[] args) {
         ChatClient client = new ChatClient();

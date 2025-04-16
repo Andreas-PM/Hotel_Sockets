@@ -2,10 +2,12 @@ package server;
 
 import java.util.*;
 import shared.Message;
+import shared.SwearFilter;
 
 public class TopicHandler {
     private Set<String> topics = new HashSet<>();
     private Map<String, Set<ServerHandler>> subscriptions = new HashMap<>();
+    private SwearFilter swearFilter = new SwearFilter();
 
     public synchronized String createTopic(String topic) {
         if (topics.add(topic.toLowerCase())) {
@@ -39,8 +41,6 @@ public class TopicHandler {
         return "List of topics: " + topics;
     }
 
-    // In server/TopicHandler.java
-    // In server/TopicHandler.java
     public synchronized void notifySubscribers(Message message, ServerHandler sender) {
         //create topics and notify the sender if a new topic is created
         Set<String> hashtags = extractHashtags(message.getMessageBody());
@@ -53,21 +53,22 @@ public class TopicHandler {
             }
         }
 
-        //heck each topic for a match in the message text ---
-        String messageTextLower = message.getMessageBody().toLowerCase();
+        // Filter the message before broadcasting to subscribers
+        String filteredMessage = swearFilter.filter(message.getMessageBody());
+        
+        //Check each topic for a match in the message text
+        String messageTextLower = filteredMessage.toLowerCase();
         for (Map.Entry<String, Set<ServerHandler>> entry : subscriptions.entrySet()) {
-            String topic = entry.getKey();  // sored as lower case
+            String topic = entry.getKey();  // stored as lower case
             //Check if the message text contains the topic
             if (messageTextLower.contains(topic)) {
-                String formatted = topic.toUpperCase() + " | " + message.getUser() + ": " + message.getMessageBody();
+                String formatted = topic.toUpperCase() + " | " + message.getUser() + ": " + filteredMessage;
                 for (ServerHandler subscriber : entry.getValue()) {
                     subscriber.sendMessageToClient(new Message(formatted, ""));
                 }
             }
         }
     }
-
-
 
     private Set<String> extractHashtags(String messageBody) {
         Set<String> hashtags = new HashSet<>();

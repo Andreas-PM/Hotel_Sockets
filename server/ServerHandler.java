@@ -6,6 +6,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Scanner;
 import shared.Message;
+import shared.SwearFilter;
 
 public class ServerHandler implements Runnable {
     private Socket socket;
@@ -17,6 +18,7 @@ public class ServerHandler implements Runnable {
     private String username = "Anonymous";
     private String currentGroup = "";
     private boolean isRegistered = false;
+    private SwearFilter swearFilter = new SwearFilter(); // Using shared SwearFilter
 
     public ServerHandler(Socket socket, ConnectionPool pool, ChatGroup chatGroup, TopicHandler topicHandler) {
         this.socket = socket;
@@ -68,6 +70,15 @@ public class ServerHandler implements Runnable {
                 if (command.equalsIgnoreCase("REGISTER")) {
                     String requestedUsername = scanner.hasNext() ? scanner.next() : initialMsg.getUser();
                     
+                    // Check username for profanity - reject instead of filtering
+                    if (!swearFilter.isClean(requestedUsername)) {
+                        // Send error about inappropriate username
+                        Message errorMsg = new Message("Username contains inappropriate content. Please choose another username.", "Server");
+                        sendMessageToClient(errorMsg);
+                        scanner.close();
+                        continue; // Try again with a new username
+                    }
+                    
                     // Check if the username already exists
                     if (pool.findClientByUsername(requestedUsername) != null) {
                         // Username already exists, send an error message
@@ -92,6 +103,16 @@ public class ServerHandler implements Runnable {
                 } else {
                     // Handle non-REGISTER initial message
                     String requestedUsername = initialMsg.getUser();
+                    
+                    // Check username for profanity - reject instead of filtering
+                    if (!swearFilter.isClean(requestedUsername)) {
+                        // Send error about inappropriate username
+                        Message errorMsg = new Message("Username contains inappropriate content. Please choose another username.", "Server");
+                        sendMessageToClient(errorMsg);
+                        scanner.close();
+                        continue; // Try again with a new username
+                    }
+                    
                     if (pool.findClientByUsername(requestedUsername) != null) {
                         Message errorMsg = new Message("Username '" + requestedUsername + "' already exists. Please try another username.", "Server");
                         sendMessageToClient(errorMsg);
@@ -190,6 +211,10 @@ public class ServerHandler implements Runnable {
                     if (commandScanner.hasNext()) {
                         String target = commandScanner.next();
                         String text = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
+                        
+                        // Filter the message content
+                        text = swearFilter.filter(text);
+                        
                         if (chatGroup.groupExists(target)) {
                             //Send message to matching group name
                             chatGroup.sendToGroup(target, new Message(text, username), this);
@@ -207,6 +232,15 @@ public class ServerHandler implements Runnable {
                 } else if (command.equals("/register")) {
                     if (commandScanner.hasNext()) {
                         String newUsername = commandScanner.next();
+                        
+                        // Check username for profanity - reject instead of filtering
+                        if (!swearFilter.isClean(newUsername)) {
+                            // Send error about inappropriate username
+                            sendMessageToClient(new Message("Username contains inappropriate content. Please choose another username.", "Server"));
+                            commandScanner.close();
+                            continue; // Skip to next message
+                        }
+                        
                         ServerHandler existingUser = pool.findClientByUsername(newUsername);
                         
                         if (existingUser != null && existingUser != this) {
@@ -238,13 +272,16 @@ public class ServerHandler implements Runnable {
                     System.out.println("User unregistered: " + username);
                     sendMessageToClient(new Message("You have been unregistered. Register to chat again.", "Server"));
                 } else {
+                    // Filter the message content for regular messages
+                    String filteredBody = swearFilter.filter(body);
+                    
                     //Show message to clients
                     if (!currentGroup.isEmpty()) { //If in a group, send the message to the group
-                        chatGroup.sendToGroup(currentGroup, new Message(body, username), this);
+                        chatGroup.sendToGroup(currentGroup, new Message(filteredBody, username), this);
                     } else { //If not in a group send the message to the global chat
-                        pool.broadcast(new Message(body, username), this);
+                        pool.broadcast(new Message(filteredBody, username), this);
                     }
-                    topicHandler.notifySubscribers(new Message(body, username), this);
+                    topicHandler.notifySubscribers(new Message(filteredBody, username), this);
                 }
             }
             commandScanner.close();

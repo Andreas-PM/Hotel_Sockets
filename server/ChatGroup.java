@@ -4,9 +4,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import shared.Message;
+import shared.SwearFilter;
 
 public class ChatGroup {
     private HashMap<String, Set<ServerHandler>> groups;
+    private SwearFilter swearFilter = new SwearFilter();
 
     public ChatGroup() {
         groups = new HashMap<>();
@@ -55,8 +57,12 @@ public class ChatGroup {
             sender.sendMessageToClient(new Message("Group " + groupName + " does not exist.", "Server"));
             return;
         }
-        String groupPrefix = groupName.toUpperCase() + " | " + msg.getUser() + ": " + msg.getMessageBody(); //Adds the group name in front of the message
+        
+        // Apply swear filter to message content
+        String filteredMessageBody = swearFilter.filter(msg.getMessageBody());
+        String groupPrefix = groupName.toUpperCase() + " | " + msg.getUser() + ": " + filteredMessageBody; //Adds the group name in front of the message
         Message groupMsg = new Message(groupPrefix, "");
+        
         for (ServerHandler client : groups.get(groupName)) {
             if (client != sender) {
                 client.sendMessageToClient(groupMsg);
