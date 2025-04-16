@@ -3,8 +3,9 @@
 ## Running the project
 
 1. Compile all java files into out/production/Hotel_Sockets/<respective_package> with `javac -d <destination_dir>/ <origin_dir>/*.java`
-2. Start up the server with `java out.production.Hotel_Sockets.server.StartChatServer`
-3. Connect however many clients you want by running in a seperate terminal `java out.production.Hotel_Sockets.server.startClient`
+2. Easy one liner compiler is `javac -d out/production/Hotel_Sockets server/*.java && javac -d out/production/Hotel_Sockets shared/*.java && javac -d out/production/Hotel_Sockets client/*.java`
+3. Start up the server with `java -cp out/production/Hotel_Sockets server.StartChatServer`
+4. Connect however many clients you want by running in a seperate terminal `java -cp out/production/Hotel_Sockets client.startClient`
 
 ## User guide
 
@@ -34,6 +35,6 @@
   2. count - Show the number of users online
 
 ### Message Commands
-1. /send <target> <message> - Send a message to a user or group (legacy format)
+1. /send <target> <message> - Send a message to a user or group (old format)
 2. /send user <username> <message> - Send a direct message to a specific user
 3. /send group <groupname> <message> - Send a message to a specific group

@@ -16,6 +16,7 @@ public class ChatClient {
     private final SwearFilter swearFilter = new SwearFilter();
     private final AtomicBoolean registrationComplete = new AtomicBoolean(false);
     private final Object registrationLock = new Object(); // Add lock object for synchronization
+    private String username = ""; // Store the username as a class field for access in all methods
 
     public void startClient() {
         try {
@@ -29,11 +30,16 @@ public class ChatClient {
 
             try ( // Read the username and send a registration command.
                     Scanner scanner = new Scanner(System.in)) {
-                String username = "";
                 // Loop until successful registration
                 while (!registrationComplete.get()) {
                     System.out.print("Enter your username: ");
-                    username = scanner.nextLine();
+                    username = scanner.nextLine().trim();
+                    
+                    // Check if username is empty
+                    if (username.isEmpty()) {
+                        System.out.println("Username cannot be empty. Please try again.");
+                        continue;
+                    }
                     
                     // Check username for profanity - don't filter, just reject
                     if (!swearFilter.isClean(username)) {
@@ -41,6 +47,7 @@ public class ChatClient {
                         continue; // Skip to next iteration without sending to server
                     }
                     
+                    // We're sending the entire username as is, even if it contains spaces
                     Message registerMsg = new Message("REGISTER " + username, username);
                     outStream.writeObject(registerMsg);
                     outStream.flush();
@@ -115,7 +122,7 @@ public class ChatClient {
                         
                         String messageHelp = """
                                                                  Message Commands:
-                                                                 1. /send <target> <message> - Send a message to a user or group (legacy format)
+                                                                 1. /send <target> <message> - Send a message to a user or group (old format)
                                                                  2. /send user <username> <message> - Send a direct message to a specific user
                                                                  3. /send group <groupname> <message> - Send a message to a specific group
                                                                  """;
@@ -197,18 +204,21 @@ public class ChatClient {
                     }
                     
                     // Intercept /register command to check for profanity in new username
+                    // and properly handle spaces in the username
                     if (userInputLower.startsWith("/register ")) {
-                        Scanner cmdScanner = new Scanner(userInput);
-                        cmdScanner.next(); // Skip command
-                        if (cmdScanner.hasNext()) {
-                            String newUsername = cmdScanner.next();
-                            cmdScanner.close();
-                            
-                            // Check new username for profanity
-                            if (!swearFilter.isClean(newUsername)) {
-                                System.out.println("Username contains inappropriate content. Please choose another username.");
-                                continue; // Skip to next iteration without sending to server
-                            }
+                        // Get everything after "/register " - preserving spaces in the username
+                        String newUsername = userInput.substring("/register ".length()).trim();
+                        
+                        // Check if username is empty
+                        if (newUsername.isEmpty()) {
+                            System.out.println("Username cannot be empty. Please try again.");
+                            continue;
+                        }
+                        
+                        // Check new username for profanity
+                        if (!swearFilter.isClean(newUsername)) {
+                            System.out.println("Username contains inappropriate content. Please choose another username.");
+                            continue; // Skip to next iteration without sending to server
                         }
                     }
                     
@@ -221,7 +231,7 @@ public class ChatClient {
                             if (cmdScanner.hasNext()) {
                                 String targetTypeOrTarget = cmdScanner.next();
                                 
-                                // Check if it's the new format (/send user|group <target>) or legacy format (/send <target>)
+                                // Check if it's the new format (/send user|group <target>) or old format (/send <target>)
                                 if (targetTypeOrTarget.equalsIgnoreCase("user") || targetTypeOrTarget.equalsIgnoreCase("group")) {
                                     // New format
                                     if (cmdScanner.hasNext()) {
@@ -239,7 +249,7 @@ public class ChatClient {
                                         filteredUserInput = userInput;
                                     }
                                 } else {
-                                    // Legacy format - target is already in targetTypeOrTarget
+                                    // old format - target is already in targetTypeOrTarget
                                     String messageContent = cmdScanner.hasNextLine() ? cmdScanner.nextLine().trim() : "";
                                     String filteredContent = swearFilter.filter(messageContent);
                                     filteredUserInput = "/send " + targetTypeOrTarget + " " + filteredContent;
@@ -292,9 +302,22 @@ public class ChatClient {
                 if (msg.getUser().equals("Server")) {
                     // Successful registration check
                     if (msg.getMessageBody().contains("Successfully registered as:")) {
-                        registrationComplete.set(true);
-                        synchronized (registrationLock) {
-                            registrationLock.notifyAll(); // Notify waiting thread
+                        // Extract the username from the message - preserve spaces
+                        String successMessage = msg.getMessageBody();
+                        if (successMessage.contains("Successfully registered as: ")) {
+                            String registeredName = successMessage.substring(
+                                "Successfully registered as: ".length());
+                            // Update the username in parent class
+                            username = registeredName;
+                            registrationComplete.set(true);
+                            synchronized (registrationLock) {
+                                registrationLock.notifyAll(); // Notify waiting thread
+                            }
+                        } else {
+                            registrationComplete.set(true);
+                            synchronized (registrationLock) {
+                                registrationLock.notifyAll(); // Notify waiting thread
+                            }
                         }
                         System.out.println(msg.getMessageBody());
                         continue;

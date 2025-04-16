@@ -34,6 +34,6 @@
   2. count - Show the number of users online
 
 ### Message Commands
-1. /send <target> <message> - Send a message to a user or group (legacy format)
+1. /send <target> <message> - Send a message to a user or group (old format)
 2. /send user <username> <message> - Send a direct message to a specific user
 3. /send group <groupname> <message> - Send a message to a specific group

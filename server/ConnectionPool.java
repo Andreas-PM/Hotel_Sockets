@@ -14,27 +14,54 @@ public class ConnectionPool {
     }
 
     public synchronized void addClient(ServerHandler client) {
-        clients.add(client);
+        // Check if client is already in the pool
+        if (!clients.contains(client)) {
+            clients.add(client);
+            // Announce new client to all existing clients
+            String username = client.getUsername();
+            String announcement = "User " + username + " joined the chat.";
+            // Don't filter server announcements - direct message construction
+            Message announceMsg = new Message(announcement, "Server");
+            for (ServerHandler existingClient : clients) {
+                if (existingClient != client) { // Don't send to the new client
+                    existingClient.sendMessageToClient(announceMsg);
+                }
+            }
+        }
     }
 
     public synchronized void removeClient(ServerHandler client) {
-        clients.remove(client);
+        if (clients.remove(client)) {
+            String username = client.getUsername();
+            String announcement = "User " + username + " left the chat.";
+            // Don't filter server announcements - direct message construction
+            Message announceMsg = new Message(announcement, "Server");
+            for (ServerHandler remainingClient : clients) {
+                remainingClient.sendMessageToClient(announceMsg);
+            }
+        }
     }
 
     public synchronized void broadcast(Message msg, ServerHandler sender) {
-        // Apply swear filter to the message
-        String filteredMessage = swearFilter.filter(msg.getMessageBody());
-        Message globalMsg = new Message("GLOBAL | " + msg.getUser() + ": " + filteredMessage, "");
-        
+        // Special handling for Server messages - never filter them
+        boolean isServerMessage = msg.getUser() != null && msg.getUser().equals("Server");
+
         for (ServerHandler client : clients) {
-            //Only send to clients that are not in a group (global chat)
-            if (client != sender &&
-                    (client.getCurrentGroup() == null || client.getCurrentGroup().isEmpty())) {
-                client.sendMessageToClient(globalMsg);
+            if (client != sender) {
+                // If it's a server message, send it directly without filtering
+                if (isServerMessage) {
+                    Message serverMsg = new Message("GLOBAL | " + msg.getUser() + ": " + msg.getMessageBody(), "");
+                    client.sendMessageToClient(serverMsg);
+                } else {
+                    // Regular user message, let the ServerHandler handle any needed filtering
+                    String filteredMessage = swearFilter.filter(msg.getMessageBody());
+                    Message userMsg = new Message("GLOBAL | " + msg.getUser() + ": " + filteredMessage, "");
+                    client.sendMessageToClient(userMsg);
+                }
             }
         }
-        //Log the broadcast on the server side
-        System.out.println("Broadcast from " + msg.getUser() + ": " + filteredMessage);
+        // Log the broadcast on the server side
+        System.out.println("Broadcast from " + msg.getUser() + ": " + msg.getMessageBody());
     }
 
     public synchronized ServerHandler findClientByUsername(String username) {

@@ -68,75 +68,70 @@ public class ServerHandler implements Runnable {
         while (!registrationSuccessful) {
             Message initialMsg = (Message) inStream.readObject();
             String initialBody = initialMsg.getMessageBody();
-            try (Scanner scanner = new Scanner(initialBody)) {
-                if (scanner.hasNext()) {
-                    String command = scanner.next();
-                    if (command.equalsIgnoreCase("REGISTER")) {
-                        String requestedUsername = scanner.hasNext() ? scanner.next() : initialMsg.getUser();
-                        
-                        // Check username for profanity - reject instead of filtering
-                        if (!swearFilter.isClean(requestedUsername)) {
-                            // Send error about inappropriate username
-                            Message errorMsg = new Message("Username contains inappropriate content. Please choose another username.", "Server");
-                            sendMessageToClient(errorMsg);
-                            scanner.close();
-                            continue; // Try again with a new username
-                        }
-                        
-                        // Check if the username already exists
-                        if (pool.findClientByUsername(requestedUsername) != null) {
-                            // Username already exists, send an error message
-                            Message errorMsg = new Message("Username '" + requestedUsername + "' already exists. Please try another username.", "Server");
-                            sendMessageToClient(errorMsg);
-                            scanner.close();
-                        } else {
-                            // Username is available
-                            username = requestedUsername;
-                            isRegistered = true;
-                            registrationSuccessful = true;
-                            System.out.println("User registered: " + username); // Log registration
-                            
-                            // Send confirmation message back to the client
-                            Message confirm = new Message("Successfully registered as: " + username, "Server");
-                            sendMessageToClient(confirm);
-                            
-                            // Add client to the connection pool
-                            pool.addClient(this);
-                        }
-                    } else {
-                        // Handle non-REGISTER initial message
-                        String requestedUsername = initialMsg.getUser();
-                        
-                        // Check username for profanity - reject instead of filtering
-                        if (!swearFilter.isClean(requestedUsername)) {
-                            // Send error about inappropriate username
-                            Message errorMsg = new Message("Username contains inappropriate content. Please choose another username.", "Server");
-                            sendMessageToClient(errorMsg);
-                            scanner.close();
-                            continue; // Try again with a new username
-                        }
-                        
-                        if (pool.findClientByUsername(requestedUsername) != null) {
-                            Message errorMsg = new Message("Username '" + requestedUsername + "' already exists. Please try another username.", "Server");
-                            sendMessageToClient(errorMsg);
-                            scanner.close();
-                            // Try again with a new username
-                        } else {
-                            username = requestedUsername;
-                            isRegistered = true;
-                            registrationSuccessful = true;
-                            System.out.println("User registered (fallback): " + username);
-                            
-                            Message confirm = new Message("Successfully registered as: " + username, "Server");
-                            sendMessageToClient(confirm);
-                            
-                            pool.addClient(this);
-                        }
-                    }
-                } else {
-                    // Empty message case - reject with error
-                    Message errorMsg = new Message("Invalid registration. Please provide a username.", "Server");
+            
+            // Check if this is a REGISTER command
+            if (initialBody.startsWith("REGISTER ")) {
+                // Extract username from the REGISTER command, preserving spaces
+                String requestedUsername = initialBody.substring("REGISTER ".length()).trim();
+                
+                // If username is empty, fall back to the user field
+                if (requestedUsername.isEmpty()) {
+                    requestedUsername = initialMsg.getUser();
+                }
+                
+                // Check username for profanity - reject instead of filtering
+                if (!swearFilter.isClean(requestedUsername)) {
+                    // Send error about inappropriate username
+                    Message errorMsg = new Message("Username contains inappropriate content. Please choose another username.", "Server");
                     sendMessageToClient(errorMsg);
+                    continue; // Try again with a new username
+                }
+                
+                // Check if the username already exists
+                if (pool.findClientByUsername(requestedUsername) != null) {
+                    // Username already exists, send an error message
+                    Message errorMsg = new Message("Username '" + requestedUsername + "' already exists. Please try another username.", "Server");
+                    sendMessageToClient(errorMsg);
+                } else {
+                    // Username is available
+                    username = requestedUsername;
+                    isRegistered = true;
+                    registrationSuccessful = true;
+                    System.out.println("User registered: " + username); // Log registration
+                    
+                    // Send confirmation message back to the client
+                    Message confirm = new Message("Successfully registered as: " + username, "Server");
+                    sendMessageToClient(confirm);
+                    
+                    // Add client to the connection pool
+                    pool.addClient(this);
+                }
+            } else {
+                // Handle non-REGISTER initial message
+                String requestedUsername = initialMsg.getUser();
+                
+                // Check username for profanity - reject instead of filtering
+                if (!swearFilter.isClean(requestedUsername)) {
+                    // Send error about inappropriate username
+                    Message errorMsg = new Message("Username contains inappropriate content. Please choose another username.", "Server");
+                    sendMessageToClient(errorMsg);
+                    continue; // Try again with a new username
+                }
+                
+                if (pool.findClientByUsername(requestedUsername) != null) {
+                    Message errorMsg = new Message("Username '" + requestedUsername + "' already exists. Please try another username.", "Server");
+                    sendMessageToClient(errorMsg);
+                    // Try again with a new username
+                } else {
+                    username = requestedUsername;
+                    isRegistered = true;
+                    registrationSuccessful = true;
+                    System.out.println("User registered (fallback): " + username);
+                    
+                    Message confirm = new Message("Successfully registered as: " + username, "Server");
+                    sendMessageToClient(confirm);
+                    
+                    pool.addClient(this);
                 }
             }
         }
@@ -149,7 +144,7 @@ public class ServerHandler implements Runnable {
             String body = msg.getMessageBody();
 
             // Check for exit commands
-            if (body.equalsIgnoreCase("exit") || body.equalsIgnoreCase("/exit")) {
+            if (body.equalsIgnoreCase("/exit")) {
                 try (socket) {
                     pool.removeClient(this);
                 }
@@ -157,6 +152,49 @@ public class ServerHandler implements Runnable {
                 break;
             }
 
+            // Handle register command properly preserving spaces in username
+            if (body.startsWith("/register ")) {
+                String newUsername = body.substring("/register ".length()).trim();
+                
+                // Check if new username is empty
+                if (newUsername.isEmpty()) {
+                    sendMessageToClient(new Message("Username cannot be empty.", "Server"));
+                    continue;
+                }
+                
+                // Check username for profanity - reject instead of filtering
+                if (!swearFilter.isClean(newUsername)) {
+                    // Send error about inappropriate username
+                    sendMessageToClient(new Message("Username contains inappropriate content. Please choose another username.", "Server"));
+                    continue; // Skip to next message
+                }
+                
+                ServerHandler existingUser = pool.findClientByUsername(newUsername);
+                
+                if (existingUser != null && existingUser != this) {
+                    // Username already exists and it's not this user - send an error message
+                    sendMessageToClient(new Message("Username '" + newUsername + "' already exists. Please try another username.", "Server"));
+                } else if (existingUser == this) {
+                    // User is trying to register with their current username
+                    sendMessageToClient(new Message("You are already registered as: " + newUsername, "Server"));
+                } else {
+                    // Valid new username
+                    if (!isRegistered) {
+                        pool.addClient(this);
+                        isRegistered = true;
+                    } else {
+                        // Create a clean server announcement without filtering
+                        String announcement = "User " + username + " has re-registered as: " + newUsername;
+                        // Use a direct broadcast that won't filter server messages
+                        Message serverMsg = new Message(announcement, "Server");
+                        pool.broadcast(serverMsg, this);
+                    }
+                    username = newUsername;
+                    sendMessageToClient(new Message("Successfully registered as: " + username, "Server"));
+                }
+                continue;
+            }
+            
             try (Scanner commandScanner = new Scanner(body)) {
                 if (commandScanner.hasNext()) {
                     String command = commandScanner.next().toLowerCase();
@@ -174,7 +212,7 @@ public class ServerHandler implements Runnable {
                             }
                         }
                         case "/topics" -> {
-                            // Legacy command for backward compatibility
+                            // old command for backward compatibility
                             String response = topicHandler.listTopics();
                             sendMessageToClient(new Message(response, "Server"));
                         }
@@ -208,14 +246,14 @@ public class ServerHandler implements Runnable {
                                 sendMessageToClient(new Message("Please specify a group command: /group <create|join|leave|remove|list> [args]", "Server"));
                             }
                         }
-                        case "/create" -> { // Legacy command
+                        case "/create" -> { // old command
                             if (commandScanner.hasNext()) {
                                 String groupName = commandScanner.next();
                                 String response = chatGroup.createGroup(groupName);
                                 sendMessageToClient(new Message(response, "Server"));
                             }
                         }
-                        case "/join" -> { // Legacy command
+                        case "/join" -> { // old command
                             if (commandScanner.hasNext()) {
                                 String groupName = commandScanner.next();
                                 String response = chatGroup.joinGroup(groupName, this);
@@ -223,7 +261,7 @@ public class ServerHandler implements Runnable {
                                 sendMessageToClient(new Message(response, "Server"));
                             }
                         }
-                        case "/leave" -> { // Legacy command
+                        case "/leave" -> { // old command
                             if (commandScanner.hasNext()) {
                                 String groupName = commandScanner.next();
                                 String response = chatGroup.leaveGroup(groupName, this);
@@ -233,7 +271,7 @@ public class ServerHandler implements Runnable {
                                 sendMessageToClient(new Message(response, "Server"));
                             }
                         }
-                        case "/remove" -> { // Legacy command
+                        case "/remove" -> { // old command
                             if (commandScanner.hasNext()) {
                                 String groupName = commandScanner.next();
                                 String response = chatGroup.removeGroup(groupName, this);
@@ -273,7 +311,7 @@ public class ServerHandler implements Runnable {
                                         sendMessageToClient(new Message("Please specify a target: /send " + targetType + " <target> <message>", "Server"));
                                     }
                                 } else {
-                                    // Legacy format for backward compatibility: /send <target> <message>
+                                    // old format for backward compatibility: /send <target> <message>
                                     String target = targetType; // In this case, targetType is actually the target
                                     String text = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
                                     
