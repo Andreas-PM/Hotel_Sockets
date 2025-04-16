@@ -6,10 +6,15 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SwearFilter {
     private Set<String> bannedWords;
     private static final String PROFANITY_LIST_PATH = "profanity-list.txt";
+    
+    // Common delimiters used to bypass filters
+    private static final String DELIMITERS = "\\s|\\.|-|_|,|/|\\\\|\\||\\*|\\+|!|@|#|\\$|%|\\^|&|\\(|\\)|=|'|\"|:|;|<|>|\\?";
     
     public SwearFilter() {
         bannedWords = new HashSet<>();
@@ -54,7 +59,9 @@ public class SwearFilter {
     }
     
     /**
-     * Checks if the text contains any banned words
+     * Checks if the text contains any banned words, including when separated by delimiters
+     * or using permutations to bypass filters
+     * 
      * @param text The text to check
      * @return true if the text is clean (contains no banned words), false otherwise
      */
@@ -63,17 +70,45 @@ public class SwearFilter {
             return true;
         }
         
-        String[] words = text.split("\\s+");
-        for (String word : words) {
-            if (bannedWords.contains(word.toLowerCase())) {
+        // Convert to lowercase for case-insensitive matching
+        String normalizedText = text.toLowerCase();
+        
+        // Check for banned words with delimiters
+        for (String bannedWord : bannedWords) {
+            // Create a pattern that allows delimiters between characters
+            StringBuilder patternBuilder = new StringBuilder();
+            for (int i = 0; i < bannedWord.length(); i++) {
+                patternBuilder.append(bannedWord.charAt(i));
+                // Add optional delimiters between characters, but not after the last one
+                if (i < bannedWord.length() - 1) {
+                    patternBuilder.append("(?:").append(DELIMITERS).append(")*");
+                }
+            }
+            
+            // Compile the pattern and check for matches
+            Pattern pattern = Pattern.compile(patternBuilder.toString());
+            Matcher matcher = pattern.matcher(normalizedText);
+            
+            if (matcher.find()) {
                 return false;
             }
         }
+        
+        // Also check for the original banned words as substrings
+        // This catches cases where banned words are embedded in other words
+        for (String bannedWord : bannedWords) {
+            if (normalizedText.contains(bannedWord)) {
+                return false;
+            }
+        }
+        
         return true;
     }
     
     /**
-     * Filters text by replacing banned words with asterisks
+     * Filters text by replacing banned words with asterisks,
+     * including when they're separated by delimiters
+     * 
      * @param text The text to filter
      * @return Filtered text with banned words replaced by asterisks
      */
@@ -82,22 +117,37 @@ public class SwearFilter {
             return text;
         }
         
-        String[] words = text.split("\\s+");
-        StringBuilder filtered = new StringBuilder();
+        String result = text;
         
-        for (String word : words) {
-            // Check if the word (lowercase) is in the banned list
-            if (bannedWords.contains(word.toLowerCase())) {
-                // Replace with asterisks
-                filtered.append("*".repeat(word.length()));
-            } else {
-                filtered.append(word);
-            }
-            filtered.append(" ");
+        // First handle direct matches
+        for (String bannedWord : bannedWords) {
+            // Case-insensitive replacement
+            Pattern pattern = Pattern.compile(bannedWord, Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(result);
+            
+            result = matcher.replaceAll(s -> "*".repeat(s.group().length()));
         }
         
-        // Trim the trailing space and return
-        return filtered.toString().trim();
+        // Then handle delimiter-separated matches
+        for (String bannedWord : bannedWords) {
+            // Create a pattern that allows delimiters between characters
+            StringBuilder patternBuilder = new StringBuilder();
+            for (int i = 0; i < bannedWord.length(); i++) {
+                patternBuilder.append(bannedWord.charAt(i));
+                // Add optional delimiters between characters, but not after the last one
+                if (i < bannedWord.length() - 1) {
+                    patternBuilder.append("(?:").append(DELIMITERS).append(")*");
+                }
+            }
+            
+            // Compile the pattern and replace matches
+            Pattern pattern = Pattern.compile(patternBuilder.toString(), Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(result);
+            
+            result = matcher.replaceAll(s -> "*".repeat(s.group().length()));
+        }
+        
+        return result;
     }
     
     /**
