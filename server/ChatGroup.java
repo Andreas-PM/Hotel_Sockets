@@ -47,6 +47,13 @@ public class ChatGroup {
         groups.remove(groupName);
         return "Group " + groupName + " removed.";
     }
+    
+    public synchronized String listGroups() { //List all available groups
+        if (groups.isEmpty()) {
+            return "No groups available.";
+        }
+        return "Available groups: " + String.join(", ", groups.keySet());
+    }
 
     public synchronized boolean groupExists(String groupName) { //Check group exists
         return groups.containsKey(groupName);
@@ -67,6 +74,42 @@ public class ChatGroup {
             if (client != sender) {
                 client.sendMessageToClient(groupMsg);
             }
+        }
+    }
+    
+    public synchronized String processGroupCommand(String subCommand, String args, ServerHandler client) {
+        if (subCommand.equals("create")) {
+            if (args == null || args.isEmpty()) {
+                return "Please specify a group name: /group create <groupName>";
+            }
+            return createGroup(args);
+        } else if (subCommand.equals("join")) {
+            if (args == null || args.isEmpty()) {
+                return "Please specify a group name: /group join <groupName>";
+            }
+            String response = joinGroup(args, client);
+            if (response.startsWith("Joined")) {
+                client.setCurrentGroup(args);
+            }
+            return response;
+        } else if (subCommand.equals("leave")) {
+            if (args == null || args.isEmpty()) {
+                return "Please specify a group name: /group leave <groupName>";
+            }
+            String response = leaveGroup(args, client);
+            if (response.startsWith("Left") && args.equalsIgnoreCase(client.getCurrentGroup())) {
+                client.setCurrentGroup("");
+            }
+            return response;
+        } else if (subCommand.equals("remove")) {
+            if (args == null || args.isEmpty()) {
+                return "Please specify a group name: /group remove <groupName>";
+            }
+            return removeGroup(args, client);
+        } else if (subCommand.equals("list")) {
+            return listGroups();
+        } else {
+            return "Invalid group command. Available options: create, join, leave, remove, list";
         }
     }
 }

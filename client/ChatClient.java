@@ -69,24 +69,83 @@ public class ChatClient {
                 }
 
                 // Add a help command to display available commands
-                if (userInputLower.equals("/help")) {
-                    String helpMessage = """
-                                         Available commands:
-                                         1. /help - Show this help message
-                                         2. /register <username> - Register with a username
-                                         3. /create <groupName> - Create a new group
-                                         4. /join <groupName> - Join an existing group
-                                         5. /leave <groupName> - Leave a group
-                                         6. /remove <groupName> - Remove a group
-                                         7. /topic <topicName> - Create a new topic
-                                         8. /subscribe <topicName> - Subscribe to a topic
-                                         9. /unsubscribe <topicName> - Unsubscribe from a topic
-                                         10. /topics - List all available topics
-                                         11. /send <target> <message> - Send a message to a user or group
-                                         12. /name - Show your current username
-                                         13. /exit - Exit the chat
+                if (userInputLower.startsWith("/help")) {
+                    String[] parts = userInputLower.split("\\s+", 2);
+                    String helpFlag = parts.length > 1 ? parts[1].toLowerCase() : "";
+                    
+                    // Define all help messages in variables for reuse
+                    String basicHelp = """
+                                       Basic Commands:
+                                       1. /register <username> - Register with a username
+                                       2. /name - Show your current username
+                                       3. /exit - Exit the chat
+                                       """;
+                    
+                    String groupHelp = """
+                                       Group Commands:
+                                       1. /group <flag> <groupName>
+                                         1. create - Create a new group
+                                         2. join - Join an existing group
+                                         3. leave - Leave a group 
+                                         4. remove - Remove a group
+                                         5. list - Show all available groups
+                                       """;
+                    
+                    String topicHelp = """
+                                       Topic Commands:
+                                       1. /topic <flag> <topicName>
+                                         1. create - Create a new topic
+                                         2. subscribe - Subscribe to a topic
+                                         3. unsubscribe - Unsubscribe from a topic
+                                         4. list - List all available topics
+                                       """;
+                    
+                    String userHelp = """
+                                      User Commands:
+                                      1. /user <flag>
+                                        1. list - Show a list of all online users
+                                        2. count - Show the number of users online
+                                      """;
+                    
+                    String messageHelp = """
+                                         Message Commands:
+                                         1. /send <target> <message> - Send a message to a user or group
                                          """;
-                    System.out.println(helpMessage);
+                    
+                    if (helpFlag.isEmpty()) {
+                        // Show general help overview
+                        String helpMessage = """
+                                             Available command categories:
+                                             1. /help - Show this help overview
+                                             2. /help basic - Basic commands (register, name, exit)
+                                             3. /help group - Group-related commands
+                                             4. /help topic - Topic-related commands
+                                             5. /help user - User-related commands
+                                             6. /help message - Message-related commands
+                                             7. /help all - Show all commands
+                                             """;
+                        System.out.println(helpMessage);
+                    } else if (helpFlag.equals("basic")) {
+                        System.out.println(basicHelp);
+                    } else if (helpFlag.equals("group")) {
+                        System.out.println(groupHelp);
+                    } else if (helpFlag.equals("topic")) {
+                        System.out.println(topicHelp);
+                    } else if (helpFlag.equals("user")) {
+                        System.out.println(userHelp);
+                    } else if (helpFlag.equals("message")) {
+                        System.out.println(messageHelp);
+                    } else if (helpFlag.equals("all")) {
+                        System.out.println("All Available Commands:\n");
+                        System.out.println(basicHelp);
+                        System.out.println(groupHelp);
+                        System.out.println(topicHelp);
+                        System.out.println(userHelp);
+                        System.out.println(messageHelp);
+                    } else {
+                        System.out.println("Unknown help category: " + helpFlag);
+                        System.out.println("Available categories: basic, group, topic, user, message, all");
+                    }
                     continue;
                 }
                 
@@ -102,7 +161,8 @@ public class ChatClient {
                     String[] validCommands = {
                         "/help", "/exit", "/name", "/topics",
                         "/register ", "/create ", "/join ", "/leave ",
-                        "/remove ", "/topic ", "/subscribe ", "/unsubscribe ", "/send "
+                        "/remove ", "/topic ", "/subscribe ", "/unsubscribe ", "/send ",
+                        "/user ", "/group "
                     };
                     
                     boolean validCommand = false;

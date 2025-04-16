@@ -16,6 +16,7 @@ public class TopicHandler {
         }
         return "Topic: " + topic + " already exists ";
     }
+    
     public synchronized String subscribe(String topic, ServerHandler handler) {
         topic = topic.toLowerCase();
         if(!topics.contains(topic)) {
@@ -79,5 +80,27 @@ public class TopicHandler {
         }
         return hashtags;
     }
-
+    
+    public synchronized String processTopicCommand(String subCommand, String args, ServerHandler handler) {
+        if (subCommand.equals("create")) {
+            if (args == null || args.isEmpty()) {
+                return "Please specify a topic name: /topic create <topicName>";
+            }
+            return createTopic(args);
+        } else if (subCommand.equals("subscribe")) {
+            if (args == null || args.isEmpty()) {
+                return "Please specify a topic name: /topic subscribe <topicName>";
+            }
+            return subscribe(args, handler);
+        } else if (subCommand.equals("unsubscribe")) {
+            if (args == null || args.isEmpty()) {
+                return "Please specify a topic name: /topic unsubscribe <topicName>";
+            }
+            return unsubscribe(args, handler);
+        } else if (subCommand.equals("list")) {
+            return listTopics();
+        } else {
+            return "Invalid topic command. Available options: create, subscribe, unsubscribe, list";
+        }
+    }
 }

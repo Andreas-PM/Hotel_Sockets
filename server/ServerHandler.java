@@ -39,6 +39,10 @@ public class ServerHandler implements Runnable {
     }
 
     public String getCurrentGroup() { return currentGroup; }
+    
+    public void setCurrentGroup(String group) { 
+        this.currentGroup = group; 
+    }
 
     @Override
     public void run() {
@@ -160,39 +164,57 @@ public class ServerHandler implements Runnable {
                 // Command handling logic
                 if (command.equals("/topic")) {
                     if (commandScanner.hasNext()) {
-                        String topic = commandScanner.next();
-                        String response = topicHandler.createTopic(topic);
+                        String subCommand = commandScanner.next().toLowerCase();
+                        String args = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
+                        String response = topicHandler.processTopicCommand(subCommand, args, this);
                         sendMessageToClient(new Message(response, "Server"));
-                    }
-                } else if (command.equals("/subscribe")) {
-                    if (commandScanner.hasNext()) {
-                        String topic = commandScanner.next();
-                        String response = topicHandler.subscribe(topic, this);
-                        sendMessageToClient(new Message(response, "Server"));
-                    }
-                } else if (command.equals("/unsubscribe")) {
-                    if (commandScanner.hasNext()) {
-                        String topic = commandScanner.next();
-                        String response = topicHandler.unsubscribe(topic, this);
-                        sendMessageToClient(new Message(response, "Server"));
+                    } else {
+                        sendMessageToClient(new Message("Please specify a topic command: /topic <create|subscribe|unsubscribe|list> [args]", "Server"));
                     }
                 } else if (command.equals("/topics")) {
+                    // Legacy command for backward compatibility
                     String response = topicHandler.listTopics();
                     sendMessageToClient(new Message(response, "Server"));
-                } else if (command.equals("/create")) { //Create a new group
+                } else if (command.equals("/user")) {
+                    if (commandScanner.hasNext()) {
+                        String subCommand = commandScanner.next().toLowerCase();
+                        if (subCommand.equals("list")) {
+                            // Get and send list of online users
+                            String response = pool.listUsers();
+                            sendMessageToClient(new Message(response, "Server"));
+                        } else if (subCommand.equals("count")) {
+                            // Get and send count of online users
+                            String response = pool.getUserCount();
+                            sendMessageToClient(new Message(response, "Server"));
+                        } else {
+                            sendMessageToClient(new Message("Invalid user command. Try '/user list' or '/user count'", "Server"));
+                        }
+                    } else {
+                        sendMessageToClient(new Message("Please specify a user command: /user <list|count>", "Server"));
+                    }
+                } else if (command.equals("/group")) {
+                    if (commandScanner.hasNext()) {
+                        String subCommand = commandScanner.next().toLowerCase();
+                        String args = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
+                        String response = chatGroup.processGroupCommand(subCommand, args, this);
+                        sendMessageToClient(new Message(response, "Server"));
+                    } else {
+                        sendMessageToClient(new Message("Please specify a group command: /group <create|join|leave|remove|list> [args]", "Server"));
+                    }
+                } else if (command.equals("/create")) { // Legacy command
                     if (commandScanner.hasNext()) {
                         String groupName = commandScanner.next();
                         String response = chatGroup.createGroup(groupName);
                         sendMessageToClient(new Message(response, "Server"));
                     }
-                } else if (command.equals("/join")) { //Join a group
+                } else if (command.equals("/join")) { // Legacy command
                     if (commandScanner.hasNext()) {
                         String groupName = commandScanner.next();
                         String response = chatGroup.joinGroup(groupName, this);
                         currentGroup = groupName;
                         sendMessageToClient(new Message(response, "Server"));
                     }
-                } else if (command.equals("/leave")) { //Leave a group
+                } else if (command.equals("/leave")) { // Legacy command
                     if (commandScanner.hasNext()) {
                         String groupName = commandScanner.next();
                         String response = chatGroup.leaveGroup(groupName, this);
@@ -201,7 +223,7 @@ public class ServerHandler implements Runnable {
                         }
                         sendMessageToClient(new Message(response, "Server"));
                     }
-                } else if (command.equals("/remove")) { //Remove a group
+                } else if (command.equals("/remove")) { // Legacy command
                     if (commandScanner.hasNext()) {
                         String groupName = commandScanner.next();
                         String response = chatGroup.removeGroup(groupName, this);
@@ -271,6 +293,8 @@ public class ServerHandler implements Runnable {
                     pool.removeClient(this);
                     System.out.println("User unregistered: " + username);
                     sendMessageToClient(new Message("You have been unregistered. Register to chat again.", "Server"));
+                } else if (command.equals("/name")) {
+                    sendMessageToClient(new Message("Your current username: " + username, "Server"));
                 } else {
                     // Filter the message content for regular messages
                     String filteredBody = swearFilter.filter(body);

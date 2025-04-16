@@ -1,6 +1,7 @@
 package server;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import shared.Message;
 import shared.SwearFilter;
 
@@ -43,5 +44,28 @@ public class ConnectionPool {
             }
         }
         return null;
+    }
+    
+    /**
+     * Gets a list of all online users
+     * @return String containing a list of all online usernames
+     */
+    public synchronized String listUsers() {
+        if (clients.isEmpty()) {
+            return "No users online";
+        }
+        String userList = clients.stream()
+                .map(ServerHandler::getUsername)
+                .collect(Collectors.joining(", "));
+        return "Users online = " + userList;
+    }
+    
+    /**
+     * Gets the count of all online users
+     * @return String containing the count of online users
+     */
+    public synchronized String getUserCount() {
+        int count = clients.size();
+        return "Users online = " + count;
     }
 }
