@@ -156,13 +156,21 @@ public class ServerHandler implements Runnable {
                         }
                     } else if (command.equals("/register")) {
                         if (commandScanner.hasNext()) {
-                            username = commandScanner.next();
-                            if (!isRegistered) {
-                                pool.addClient(this);
+                            String newUsername = commandScanner.next();
+                            if (pool.findClientByUsername(newUsername) != null) {
+                                sendMessageToClient(new Message("Username '" + newUsername + "' already exists. Please try another username.", "Server"));
+                            } else {
+                                if (!isRegistered) {
+                                    pool.addClient(this);
+                                } else {
+                                    // Announce re-registration
+                                    String announcement = "User " + username + " has re-registered as: " + newUsername;
+                                    pool.broadcast(new Message(announcement, "Server"), this);
+                                }
+                                username = newUsername;
+                                isRegistered = true;
+                                sendMessageToClient(new Message("Successfully registered as: " + username, "Server"));
                             }
-                            isRegistered = true;
-                            System.out.println("User re-registered as: " + username);
-                            sendMessageToClient(new Message("Successfully registered as: " + username, "Server"));
                         }
                     } else if (command.equals("/unregister")) {
                         isRegistered = false;
