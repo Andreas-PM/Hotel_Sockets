@@ -85,45 +85,43 @@ public class ServerHandler implements Runnable {
 
                 Scanner commandScanner = new Scanner(body);
                 if (commandScanner.hasNext()) {
-                    String command = commandScanner.next();
+                    String command = commandScanner.next().toLowerCase();
 
-                    if (command.equalsIgnoreCase("TOPIC")) {
+                    if (command.equals("/topic")) {
                         if (commandScanner.hasNext()) {
                             String topic = commandScanner.next();
                             String response = topicHandler.createTopic(topic);
                             sendMessageToClient(new Message(response, "Server"));
                         }
-                    } else if (command.equalsIgnoreCase("SUBSCRIBE")) {
+                    } else if (command.equals("/subscribe")) {
                         if (commandScanner.hasNext()) {
                             String topic = commandScanner.next();
                             String response = topicHandler.subscribe(topic, this);
                             sendMessageToClient(new Message(response, "Server"));
                         }
-                    } else if (command.equalsIgnoreCase("UNSUBSCRIBE")) {
+                    } else if (command.equals("/unsubscribe")) {
                         if (commandScanner.hasNext()) {
                             String topic = commandScanner.next();
                             String response = topicHandler.unsubscribe(topic, this);
                             sendMessageToClient(new Message(response, "Server"));
                         }
-                    } else if (command.equalsIgnoreCase("TOPICS")) {
+                    } else if (command.equals("/topics")) {
                         String response = topicHandler.listTopics();
                         sendMessageToClient(new Message(response, "Server"));
-                    }
-
-                    if (command.equalsIgnoreCase("CREATE")) { //Create a new group
+                    } else if (command.equals("/create")) { //Create a new group
                         if (commandScanner.hasNext()) {
                             String groupName = commandScanner.next();
                             String response = chatGroup.createGroup(groupName);
                             sendMessageToClient(new Message(response, "Server"));
                         }
-                    } else if (command.equalsIgnoreCase("JOIN")) { //Join a group
+                    } else if (command.equals("/join")) { //Join a group
                         if (commandScanner.hasNext()) {
                             String groupName = commandScanner.next();
                             String response = chatGroup.joinGroup(groupName, this);
                             currentGroup = groupName;
                             sendMessageToClient(new Message(response, "Server"));
                         }
-                    } else if (command.equalsIgnoreCase("LEAVE")) { //Leave a group
+                    } else if (command.equals("/leave")) { //Leave a group
                         if (commandScanner.hasNext()) {
                             String groupName = commandScanner.next();
                             String response = chatGroup.leaveGroup(groupName, this);
@@ -132,13 +130,13 @@ public class ServerHandler implements Runnable {
                             }
                             sendMessageToClient(new Message(response, "Server"));
                         }
-                    } else if (command.equalsIgnoreCase("REMOVE")) { //Remove a group
+                    } else if (command.equals("/remove")) { //Remove a group
                         if (commandScanner.hasNext()) {
                             String groupName = commandScanner.next();
                             String response = chatGroup.removeGroup(groupName, this);
                             sendMessageToClient(new Message(response, "Server"));
                         }
-                    } else if (command.equalsIgnoreCase("SEND")) { //Send message to user or group
+                    } else if (command.equals("/send")) { //Send message to user or group
                         if (commandScanner.hasNext()) {
                             String target = commandScanner.next();
                             String text = commandScanner.hasNextLine() ? commandScanner.nextLine().trim() : "";
@@ -156,7 +154,7 @@ public class ServerHandler implements Runnable {
                                 }
                             }
                         }
-                    } else if (command.equalsIgnoreCase("REGISTER")) {
+                    } else if (command.equals("/register")) {
                         if (commandScanner.hasNext()) {
                             username = commandScanner.next();
                             if (!isRegistered) {
@@ -166,7 +164,7 @@ public class ServerHandler implements Runnable {
                             System.out.println("User re-registered as: " + username);
                             sendMessageToClient(new Message("Successfully registered as: " + username, "Server"));
                         }
-                    } else if (command.equalsIgnoreCase("UNREGISTER")) {
+                    } else if (command.equals("/unregister")) {
                         isRegistered = false;
                         pool.removeClient(this);
                         System.out.println("User unregistered: " + username);
