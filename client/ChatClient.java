@@ -5,6 +5,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicBoolean;
 import shared.Message;
 
 public class ChatClient {
@@ -12,6 +13,7 @@ public class ChatClient {
     private ObjectOutputStream outStream;
     private Socket socket;
     private SwearFilter swearFilter = new SwearFilter();
+    private AtomicBoolean registrationComplete = new AtomicBoolean(false);
 
 
     public void startClient() {
@@ -26,13 +28,26 @@ public class ChatClient {
 
             // Read the username and send a registration command.
             Scanner scanner = new Scanner(System.in);
-            System.out.print("Enter your username: ");
-            String username = scanner.nextLine();
-            Message registerMsg = new Message("REGISTER " + username, username); // CHANGED: Registration command format
-            outStream.writeObject(registerMsg);
-            outStream.flush();
+            String username = "";
+            
+            // Loop until successful registration
+            while (!registrationComplete.get()) {
+                System.out.print("Enter your username: ");
+                username = scanner.nextLine();
+                Message registerMsg = new Message("REGISTER " + username, username);
+                outStream.writeObject(registerMsg);
+                outStream.flush();
+                
+                // Wait for the server's response
+                try {
+                    // Give time for the server to respond and the listener thread to process
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
 
-            System.out.println("Welcome " + username + "! You can start chatting now.");
+            System.out.println("You can start chatting now.");
 
             // Main loop to send messages.
             while (true) {
@@ -109,6 +124,25 @@ public class ChatClient {
         try {
             while (true) {
                 Message msg = (Message) inStream.readObject();
+                
+                // Check if this is a registration response
+                if (msg.getUser().equals("Server")) {
+                    // Successful registration check
+                    if (msg.getMessageBody().contains("Successfully registered as:")) {
+                        registrationComplete.set(true);
+                        System.out.println(msg.getMessageBody());
+                        continue;
+                    }
+                    // Username already exists check - now we need to display this error
+                    else if (msg.getMessageBody().contains("already exists")) {
+                        System.out.println(msg.getMessageBody());
+                        continue;
+                    }
+                    // Any other server message - print it
+                    System.out.println("Server: " + msg.getMessageBody());
+                    continue;
+                }
+                
                 //Display the sender and message.
                 if (msg.getUser() == null || msg.getUser().isEmpty()) {
                     System.out.println(msg.getMessageBody());

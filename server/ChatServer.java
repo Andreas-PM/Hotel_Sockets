@@ -18,7 +18,7 @@ public class ChatServer {
                 Socket socket = serverSocket.accept();
                 System.out.println("New client connected: " + socket.getInetAddress()); // NEW: Log each connection
                 ServerHandler handler = new ServerHandler(socket, pool, chatGroup, topicHandler);
-                pool.addClient(handler); // NEW: Register the client in the pool
+                // Don't add the client to the pool here - will be added after successful registration
                 new Thread(handler).start(); // CHANGED: Directly starting a new thread for the handler
             }
         } catch (IOException e) {
