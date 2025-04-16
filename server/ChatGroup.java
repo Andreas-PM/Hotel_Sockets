@@ -7,8 +7,8 @@ import shared.Message;
 import shared.SwearFilter;
 
 public class ChatGroup {
-    private HashMap<String, Set<ServerHandler>> groups;
-    private SwearFilter swearFilter = new SwearFilter();
+    private final HashMap<String, Set<ServerHandler>> groups;
+    private final SwearFilter swearFilter = new SwearFilter();
 
     public ChatGroup() {
         groups = new HashMap<>();
@@ -78,38 +78,45 @@ public class ChatGroup {
     }
     
     public synchronized String processGroupCommand(String subCommand, String args, ServerHandler client) {
-        if (subCommand.equals("create")) {
-            if (args == null || args.isEmpty()) {
-                return "Please specify a group name: /group create <groupName>";
+        switch (subCommand) {
+            case "create" -> {
+                if (args == null || args.isEmpty()) {
+                    return "Please specify a group name: /group create <groupName>";
+                }
+                return createGroup(args);
             }
-            return createGroup(args);
-        } else if (subCommand.equals("join")) {
-            if (args == null || args.isEmpty()) {
-                return "Please specify a group name: /group join <groupName>";
+            case "join" -> {
+                if (args == null || args.isEmpty()) {
+                    return "Please specify a group name: /group join <groupName>";
+                }
+                String response = joinGroup(args, client);
+                if (response.startsWith("Joined")) {
+                    client.setCurrentGroup(args);
+                }
+                return response;
             }
-            String response = joinGroup(args, client);
-            if (response.startsWith("Joined")) {
-                client.setCurrentGroup(args);
+            case "leave" -> {
+                if (args == null || args.isEmpty()) {
+                    return "Please specify a group name: /group leave <groupName>";
+                }
+                String response = leaveGroup(args, client);
+                if (response.startsWith("Left") && args.equalsIgnoreCase(client.getCurrentGroup())) {
+                    client.setCurrentGroup("");
+                }
+                return response;
             }
-            return response;
-        } else if (subCommand.equals("leave")) {
-            if (args == null || args.isEmpty()) {
-                return "Please specify a group name: /group leave <groupName>";
+            case "remove" -> {
+                if (args == null || args.isEmpty()) {
+                    return "Please specify a group name: /group remove <groupName>";
+                }
+                return removeGroup(args, client);
             }
-            String response = leaveGroup(args, client);
-            if (response.startsWith("Left") && args.equalsIgnoreCase(client.getCurrentGroup())) {
-                client.setCurrentGroup("");
+            case "list" -> {
+                return listGroups();
             }
-            return response;
-        } else if (subCommand.equals("remove")) {
-            if (args == null || args.isEmpty()) {
-                return "Please specify a group name: /group remove <groupName>";
+            default -> {
+                return "Invalid group command. Available options: create, join, leave, remove, list";
             }
-            return removeGroup(args, client);
-        } else if (subCommand.equals("list")) {
-            return listGroups();
-        } else {
-            return "Invalid group command. Available options: create, join, leave, remove, list";
         }
     }
 }

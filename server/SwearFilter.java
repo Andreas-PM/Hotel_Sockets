@@ -5,7 +5,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class SwearFilter {
-    private Set<String> bannedWords;
+    private final Set<String> bannedWords;
     
     public SwearFilter() {
         // Initialize with a list of banned words

@@ -5,9 +5,9 @@ import shared.Message;
 import shared.SwearFilter;
 
 public class TopicHandler {
-    private Set<String> topics = new HashSet<>();
-    private Map<String, Set<ServerHandler>> subscriptions = new HashMap<>();
-    private SwearFilter swearFilter = new SwearFilter();
+    private final Set<String> topics = new HashSet<>();
+    private final Map<String, Set<ServerHandler>> subscriptions = new HashMap<>();
+    private final SwearFilter swearFilter = new SwearFilter();
 
     public synchronized String createTopic(String topic) {
         if (topics.add(topic.toLowerCase())) {
@@ -36,7 +36,7 @@ public class TopicHandler {
     }
 
     public synchronized String listTopics() {
-        if (topics.size() == 0) {
+        if (topics.isEmpty()) {
             return "No topic subscribed";
         }
         return "List of topics: " + topics;
@@ -82,25 +82,31 @@ public class TopicHandler {
     }
     
     public synchronized String processTopicCommand(String subCommand, String args, ServerHandler handler) {
-        if (subCommand.equals("create")) {
-            if (args == null || args.isEmpty()) {
-                return "Please specify a topic name: /topic create <topicName>";
+        switch (subCommand) {
+            case "create" -> {
+                if (args == null || args.isEmpty()) {
+                    return "Please specify a topic name: /topic create <topicName>";
+                }
+                return createTopic(args);
             }
-            return createTopic(args);
-        } else if (subCommand.equals("subscribe")) {
-            if (args == null || args.isEmpty()) {
-                return "Please specify a topic name: /topic subscribe <topicName>";
+            case "subscribe" -> {
+                if (args == null || args.isEmpty()) {
+                    return "Please specify a topic name: /topic subscribe <topicName>";
+                }
+                return subscribe(args, handler);
             }
-            return subscribe(args, handler);
-        } else if (subCommand.equals("unsubscribe")) {
-            if (args == null || args.isEmpty()) {
-                return "Please specify a topic name: /topic unsubscribe <topicName>";
+            case "unsubscribe" -> {
+                if (args == null || args.isEmpty()) {
+                    return "Please specify a topic name: /topic unsubscribe <topicName>";
+                }
+                return unsubscribe(args, handler);
             }
-            return unsubscribe(args, handler);
-        } else if (subCommand.equals("list")) {
-            return listTopics();
-        } else {
-            return "Invalid topic command. Available options: create, subscribe, unsubscribe, list";
+            case "list" -> {
+                return listTopics();
+            }
+            default -> {
+                return "Invalid topic command. Available options: create, subscribe, unsubscribe, list";
+            }
         }
     }
 }

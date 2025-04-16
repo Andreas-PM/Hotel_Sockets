@@ -6,8 +6,8 @@ import shared.Message;
 import shared.SwearFilter;
 
 public class ConnectionPool {
-    private List<ServerHandler> clients;
-    private SwearFilter swearFilter = new SwearFilter();
+    private final List<ServerHandler> clients;
+    private final SwearFilter swearFilter = new SwearFilter();
 
     public ConnectionPool() {
         clients = new ArrayList<>();

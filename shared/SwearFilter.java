@@ -10,7 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SwearFilter {
-    private Set<String> bannedWords;
+    private final Set<String> bannedWords;
     private static final String PROFANITY_LIST_PATH = "profanity-list.txt";
     
     // Common delimiters used to bypass filters

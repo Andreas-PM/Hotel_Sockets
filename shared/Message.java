@@ -5,8 +5,8 @@ import java.io.Serializable;
 
 // From Practical 4 multiClientChat
 public class Message implements Serializable {
-    private String messageBody;
-    private String user;
+    private final String messageBody;
+    private final String user;
 
     public Message(String messageBody, String username) {
         this.messageBody = messageBody;
