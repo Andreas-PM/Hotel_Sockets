@@ -51,6 +51,7 @@ public class ChatClient {
 
             // Main loop to send messages.
             while (true) {
+                System.out.print("> "); // Simple prompt without username
                 String userInput = scanner.nextLine();
                 String userInputLower = userInput.toLowerCase();
 
@@ -75,29 +76,54 @@ public class ChatClient {
                                          9. /unsubscribe <topicName> - Unsubscribe from a topic
                                          10. /topics - List all available topics
                                          11. /send <target> <message> - Send a message to a user or group
-                                         12. /exit - Exit the chat
+                                         12. /name - Show your current username
+                                         13. /exit - Exit the chat
                                          """;
                     System.out.println(helpMessage);
+                    continue;
+                }
+                
+                // Show the current username
+                if (userInputLower.equals("/name")) {
+                    System.out.println("Your username: " + username);
                     continue;
                 }
 
                 // Check for invalid commands starting with "/"
                 if (userInputLower.startsWith("/")) {
-                    if (!(userInputLower.equals("/help") ||
-                          userInputLower.equals("/exit") ||
-                          userInputLower.startsWith("/register ") ||
-                          userInputLower.startsWith("/create ") ||
-                          userInputLower.startsWith("/join ") ||
-                          userInputLower.startsWith("/leave ") ||
-                          userInputLower.startsWith("/remove ") ||
-                          userInputLower.startsWith("/topic ") ||
-                          userInputLower.startsWith("/subscribe ") ||
-                          userInputLower.startsWith("/unsubscribe ") ||
-                          userInputLower.equals("/topics") ||
-                          userInputLower.startsWith("/send "))) {
+                    // List of valid commands
+                    String[] validCommands = {
+                        "/help", "/exit", "/name", "/topics",
+                        "/register ", "/create ", "/join ", "/leave ",
+                        "/remove ", "/topic ", "/subscribe ", "/unsubscribe ", "/send "
+                    };
+                    
+                    boolean validCommand = false;
+                    for (String cmd : validCommands) {
+                        if (cmd.endsWith(" ")) {
+                            // For commands that require parameters
+                            if (userInputLower.startsWith(cmd)) {
+                                validCommand = true;
+                                break;
+                            }
+                        } else {
+                            // For commands without parameters
+                            if (userInputLower.equals(cmd)) {
+                                validCommand = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!validCommand) {
                         System.out.println("Invalid command, type /help for assistance");
                         continue;
                     }
+                }
+
+                // Display formatted message on the user's screen to show what they sent
+                if (!userInput.startsWith("/") || userInput.startsWith("/send")) {
+                    System.out.println("[YOU] | " + username + ": " + userInput);
                 }
 
                 Message msg = new Message(userInput, username);
